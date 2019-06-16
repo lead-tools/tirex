@@ -39,90 +39,68 @@ EndFunction
 // Array - скомпилированная регулярка
 //
 Function Build(Pattern) Export
-	AlphaSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZабвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ";
-	DigitSet = "0123456789";
-	SpaceSet = " " + Chars.NBSp + Chars.Tab + Chars.LF;
+	Lexer = Lexer(Pattern);
 	Regex = New Array;
-	Pos = 1; CharSet = Mid(Pattern, Pos, 1); // first char
+	CharSet = NextChar(Lexer);
 	Balance = 0;
-	IgnoreCase = False;
-	Complement = False;
-	Map = New Map; Regex.Add(Map); // null node
-	Map = New Map; Regex.Add(Map); // first node
+	Node = NewNode(Regex); // нулевой узел
+	Node = NewNode(Regex); // первый узел
 	While True Do
-		If CharSet = "\" Then
-			Pos = Pos + 1; CharSet = Mid(Pattern, Pos, 1); // next char	
-			If CharSet = "n" Then
-				CharSet = Chars.LF;
-			ElsIf CharSet = "w" Then
-				CharSet = AlphaSet;
-			ElsIf CharSet = "d" Then
-				CharSet = DigitSet;
-			ElsIf CharSet = "s" Then
-				CharSet = SpaceSet; 
-			ElsIf CharSet = "W" Then
-				CharSet = AlphaSet;
-				Complement = True;
-			ElsIf CharSet = "D" Then
-				CharSet = DigitSet;
-				Complement = True;
-			ElsIf CharSet = "S" Then
-				CharSet = SpaceSet;
-				Complement = True;
-			EndIf;
-			AddArrows(Map, CharSet, Regex.Count(), IgnoreCase, Complement);
+		If CharSet = "\" Then	
+			CharSet = CharSet(Lexer, NextChar(Lexer, True));
+			AddArrows(Lexer, Node, CharSet, Regex.Count());
 		ElsIf CharSet = "[" Then
 			List = New Array;
-			Pos = Pos + 1; CharSet = Mid(Pattern, Pos, 1); // next char
+			CharSet = NextChar(Lexer);
 			While CharSet <> "]" Do
 				If CharSet = "\" Then
-					Pos = Pos + 1; CharSet = Mid(Pattern, Pos, 1); // next char
+					CharSet = NextChar(Lexer);
 				EndIf;
 				If CharSet = "" Then
-					Raise "Expected ']'";
+					Raise "expected ']'";
 				EndIf;
 				List.Add(CharSet);
-				Pos = Pos + 1; CharSet = Mid(Pattern, Pos, 1); // next char
+				CharSet = NextChar(Lexer);
 			EndDo;
 			CharSet = StrConcat(List);
-			AddArrows(Map, CharSet, Regex.Count(), IgnoreCase, Complement);
+			AddArrows(Lexer, Node, CharSet, Regex.Count());
 		ElsIf CharSet = "." Then
 			List = New Array;
-			List.Add(Regex.Count()); // arrow for any char
-			Map["any"] = List;
-		ElsIf CharSet = "_" Then
-			IgnoreCase = Not IgnoreCase;
-			Pos = Pos + 1; CharSet = Mid(Pattern, Pos, 1); // next char
-			Continue;
+			List.Add(Regex.Count()); // стрелка для любого символа
+			Node["any"] = List;
 		ElsIf CharSet = "(" Then
 			Count = 0;
 			While CharSet = "(" Do
 				Count = Count + 1;
-				Pos = Pos + 1; CharSet = Mid(Pattern, Pos, 1); // next char
+				CharSet = NextChar(Lexer);
 			EndDo;
 			Balance = Balance + Count;
-			Map["++"] = Count;
-			Map["next"] = Regex.Count();
-			Map = New Map; Regex.Add(Map); // new node
+			Node["++"] = Count;
+			Node["next"] = Regex.Count();
+			Node = NewNode(Regex);
 			Continue;
 		ElsIf CharSet = "*" Or CharSet = "?" Then
-			Raise StrTemplate("unexpected character '%1' in position '%2'", CharSet, Pos);
+			Raise StrTemplate("unexpected character '%1' in position '%2'", CharSet, Lexer.Pos);
 		ElsIf CharSet = "" Then
 			List = New Array;
 			List.Add(Regex.Count());
-			Map[""] = List; 
+			Node[""] = List; 
 			Break;
 		Else
-			AddArrows(Map, CharSet, Regex.Count(), IgnoreCase, Complement);
+			AddArrows(Lexer, Node, CharSet, Regex.Count());
 		EndIf;
-		Pos = Pos + 1; NextChar = Mid(Pattern, Pos, 1); // next char
+		NextChar = NextChar(Lexer); 
 		If NextChar = "*" Then
-			AddArrows(Map, CharSet, Regex.Count() - 1, IgnoreCase, Complement);
-			Map["next"] = Regex.Count();
-			Pos = Pos + 1; CharSet = Mid(Pattern, Pos, 1); // next char
+			If CharSet = "." Then
+				Node["any"].Add(Regex.Count() - 1);
+			Else
+				AddArrows(Lexer, Node, CharSet, Regex.Count() - 1);
+			EndIf; 
+			Node["next"] = Regex.Count();
+			CharSet = NextChar(Lexer);
 		ElsIf NextChar = "?" Then
-			Map["next"] = Regex.Count();
-			Pos = Pos + 1; CharSet = Mid(Pattern, Pos, 1); // next char
+			Node["next"] = Regex.Count();
+			CharSet = NextChar(Lexer);
 		Else
 			CharSet = NextChar;
 		EndIf;
@@ -130,19 +108,19 @@ Function Build(Pattern) Export
 			Count = 0;
 			While CharSet = ")" Do
 				Count = Count + 1;
-				Pos = Pos + 1; CharSet = Mid(Pattern, Pos, 1); // next char
+				CharSet = NextChar(Lexer);
 			EndDo;
-			Map["--"] = Count;
+			Node["--"] = Count;
 			Balance = Balance - Count;
 		EndIf;
-		Map = New Map; Regex.Add(Map); // new node 
-		Complement = False;
+		Node = NewNode(Regex); 
+		Lexer.Complement = False;
 	EndDo;
 	If Balance <> 0 Then
 		Raise "unbalanced brackets"
 	EndIf; 
-	Map = New Map; Regex.Add(Map); // new node
-	Map["end"] = True; // end state	
+	Node = NewNode(Regex);
+	Node["end"] = True; // разрешенное конечное состояние
 	Return Regex;
 EndFunction 
 
@@ -172,7 +150,7 @@ Function Captures(Regex) Export
 		Dec = Node["--"];
 		If Dec <> Undefined Then
 			For n = 1 To Dec Do
-				Captures.Add(New Structure("Beg, End", Stack[Level], Pos ));
+				Captures.Add(New Structure("Beg, End", Stack[Level], Pos));
 				Level = Level - 1;
 			EndDo;
 		EndIf; 
@@ -190,37 +168,97 @@ Function MatchRecursive(Regex, Str, Val Index = 1, Val Pos = 1)
 	Char = Mid(Str, Pos, 1);
 	Targets = Map[Char];
 	If Targets = Undefined Then
-		Index = Map["next"];
-		If Index <> Undefined Then
-			Map["pos"] = Pos - 1;
-			Goto ~init;
-		EndIf; 
-		Targets = Map["any"]; // any char
+		Targets = Map["any"]; // разрешен любой символ?
 		If Targets = Undefined Then
-			Return Map["end"] = True; // end
-		EndIf; 
+			Index = Map["next"]; // можно пропустить без поглощения символа?
+			If Index <> Undefined Then
+				Map["pos"] = Pos - 1;
+				Goto ~init; // попытка сопоставить символ со следующим узлом
+			EndIf;
+			Return Map["end"] = True; // это разрешенное конечное состояние?
+		EndIf;  
 	EndIf; 
 	Map["pos"] = Pos;
+	// эмуляция NFA
+	// выполняется попытка сопоставления в каждом из миров
 	For Each Index In Targets Do
 		If MatchRecursive(Regex, Str, Index, Pos + 1) Then
 			Return True;
 		EndIf; 
 	EndDo;
-	Index = Map["next"];
+	Index = Map["next"]; // можно пропустить без поглощения символа?
 	If Index <> Undefined Then
 		Return MatchRecursive(Regex, Str, Index, Pos)
 	EndIf; 
 	Return False;
 EndFunction
 
-Procedure AddArrows(Map, CharSet, Val Target, IgnoreCase = False, Complement = False)
-	If Complement Then
+Function NewNode(Regex)
+	Node = New Map;
+	Regex.Add(Node);	
+	Return Node;
+EndFunction 
+
+Function Lexer(Pattern)
+	AlphaSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZабвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ";
+	DigitSet = "0123456789";
+	SpaceSet = " " + Chars.NBSp + Chars.Tab + Chars.LF;
+	Lexer = New Structure;
+	// константы
+	Lexer.Insert("AlphaSet", AlphaSet);
+	Lexer.Insert("DigitSet", DigitSet);
+	Lexer.Insert("SpaceSet", SpaceSet);
+	Lexer.Insert("Pattern", Pattern);
+	// состояние
+	Lexer.Insert("Pos", 0);
+	Lexer.Insert("IgnoreCase", False);
+	Lexer.Insert("Complement", False);
+	Return Lexer;
+EndFunction 
+
+Function NextChar(Lexer, Escape = False)
+	Lexer.Pos = Lexer.Pos + 1;
+	Char = Mid(Lexer.Pattern, Lexer.Pos, 1);
+	If Not Escape Then
+		While Char = "_" Do
+			Lexer.IgnoreCase = Not Lexer.IgnoreCase;
+			Lexer.Pos = Lexer.Pos + 1;
+			Char = Mid(Lexer.Pattern, Lexer.Pos, 1); // next char
+		EndDo; 
+	EndIf;
+	Return Char;
+EndFunction 
+
+Function CharSet(Lexer, Char)
+	If Char = "n" Then
+		CharSet = Chars.LF;
+	ElsIf Char = "w" Then
+		CharSet = Lexer.AlphaSet;
+	ElsIf Char = "d" Then
+		CharSet = Lexer.DigitSet;
+	ElsIf Char = "s" Then
+		CharSet = Lexer.SpaceSet; 
+	ElsIf Char = "W" Then
+		CharSet = Lexer.AlphaSet;
+		Complement = True;
+	ElsIf Char = "D" Then
+		CharSet = Lexer.DigitSet;
+		Complement = True;
+	ElsIf Char = "S" Then
+		CharSet = Lexer.SpaceSet;
+		Complement = True;
+	EndIf;
+	Return CharSet;
+EndFunction
+
+Procedure AddArrows(Lexer, Map, CharSet, Val Target)
+	If Lexer.Complement Then
 		Targets(Map, "any").Add(Target);
 		Target = 0; // arrow to null
 	EndIf;
 	For Num = 1 To Max(1, StrLen(CharSet)) Do
 		Char = Mid(CharSet, Num, 1); 
-		If IgnoreCase Then
+		If Lexer.IgnoreCase Then
 			Targets(Map, Lower(Char)).Add(Target);
 			Targets(Map, Upper(Char)).Add(Target);
 		Else
