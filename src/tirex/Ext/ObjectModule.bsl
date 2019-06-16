@@ -65,9 +65,7 @@ Function Build(Pattern) Export
 			CharSet = StrConcat(List);
 			AddArrows(Lexer, Node, CharSet, Regex.Count());
 		ElsIf CharSet = "." Then
-			List = New Array;
-			List.Add(Regex.Count()); // стрелка для любого символа
-			Node["any"] = List;
+			Targets(Node, "any").Add(Regex.Count()); // стрелка для любого символа
 		ElsIf CharSet = "(" Then
 			Count = 0;
 			While CharSet = "(" Do
@@ -81,10 +79,8 @@ Function Build(Pattern) Export
 			Continue;
 		ElsIf CharSet = "*" Or CharSet = "?" Then
 			Raise StrTemplate("unexpected character '%1' in position '%2'", CharSet, Lexer.Pos);
-		ElsIf CharSet = "" Then
-			List = New Array;
-			List.Add(Regex.Count());
-			Node[""] = List; 
+		ElsIf CharSet = "" Then 
+			Targets(Node, "").Add(Regex.Count());
 			Break;
 		Else
 			AddArrows(Lexer, Node, CharSet, Regex.Count());
@@ -92,7 +88,7 @@ Function Build(Pattern) Export
 		NextChar = NextChar(Lexer); 
 		If NextChar = "*" Then
 			If CharSet = "." Then
-				Node["any"].Add(Regex.Count() - 1);
+				Targets(Node, "any").Add(Regex.Count() - 1);
 			Else
 				AddArrows(Lexer, Node, CharSet, Regex.Count() - 1);
 			EndIf; 
@@ -251,27 +247,27 @@ Function CharSet(Lexer, Char)
 	Return CharSet;
 EndFunction
 
-Procedure AddArrows(Lexer, Map, CharSet, Val Target)
+Procedure AddArrows(Lexer, Node, CharSet, Val Target)
 	If Lexer.Complement Then
-		Targets(Map, "any").Add(Target);
+		Targets(Node, "any").Add(Target);
 		Target = 0; // arrow to null
 	EndIf;
 	For Num = 1 To Max(1, StrLen(CharSet)) Do
 		Char = Mid(CharSet, Num, 1); 
 		If Lexer.IgnoreCase Then
-			Targets(Map, Lower(Char)).Add(Target);
-			Targets(Map, Upper(Char)).Add(Target);
+			Targets(Node, Lower(Char)).Add(Target);
+			Targets(Node, Upper(Char)).Add(Target);
 		Else
-			Targets(Map, Char).Add(Target);
+			Targets(Node, Char).Add(Target);
 		EndIf;
 	EndDo;
 EndProcedure 
 
-Function Targets(Map, Char)
-	Targets = Map[Char];
+Function Targets(Node, Key)
+	Targets = Node[Key];
 	If Targets = Undefined Then
 		Targets = New Array;
-		Map[Char] = Targets;
+		Node[Key] = Targets;
 	EndIf; 
 	Return Targets;
 EndFunction  
