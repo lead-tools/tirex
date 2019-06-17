@@ -1,6 +1,7 @@
 ﻿#Region Public
 
 // Function - Проверяет соответствует ли строка регулярному выражению
+// Сопоставление выполняется обходом в глубину без мемоизации.
 //
 // Не тестировалось. Использовать в бою нельзя.
 //
@@ -13,6 +14,56 @@
 //
 Function Match(Regex, Str) Export
 	Return MatchRecursive(Regex, Str, 1, 1);
+EndFunction
+
+// Альтернативное сопоставление обходом в ширину.
+// В текущей реализации не позволяет получить захваты.
+//
+// Не тестировалось. Использовать в бою нельзя.
+//
+// Parameters:
+//  Regex	 - Array - скомпилированная функцией Build() регулярка 
+//  Str		 - String - проверяемая строка 
+// 
+// Returns:
+//  Boolean - признак что строка соответствует регулярному выражению
+//
+Function Match2(Regex, Str) Export
+	List = New Map; NewList = New Map;
+	List[Regex[1]] = Undefined;
+	For Pos = 1 To StrLen(Str) + 1 Do
+		Char = Mid(Str, Pos, 1);
+		For Each Item In List Do
+			Node = Item.Key;
+			~init:
+			Targets = Node[Char];
+			If Targets = Undefined Then
+				Targets = Node["any"]; // разрешен любой символ?  
+			EndIf;
+			If Targets <> Undefined Then
+				Node["pos"] = Pos;
+				For Each Target In Targets Do
+					NewList[Regex[Target]] = Undefined;
+				EndDo;
+			EndIf;	
+			Target = Node["next"]; // можно пропустить без поглощения символа?
+			If Target <> Undefined Then
+				Node["pos"] = Pos - 1;
+				Node = Regex[Target];
+				Goto ~init; 
+			EndIf;
+		EndDo;
+		Temp = List;
+		List = NewList;
+		NewList = Temp;
+		NewList.Clear();
+	EndDo;
+	For Each Item In List Do
+		If Item.Key["end"] = True Then
+			Return True;
+		EndIf; 
+	EndDo; 
+	Return False;
 EndFunction
 
 // Function - Возвращает скомпилированную регулярку
