@@ -54,7 +54,7 @@ Function Build(Pattern) Export
 			CharSet = NextChar(Lexer);
 			While CharSet <> "]" Do
 				If CharSet = "\" Then
-					CharSet = NextChar(Lexer);
+					CharSet = CharSet(Lexer, NextChar(Lexer, True));
 				EndIf;
 				If CharSet = "" Then
 					Raise "expected ']'";
@@ -66,6 +66,7 @@ Function Build(Pattern) Export
 			AddArrows(Lexer, Node, CharSet, Regex.Count());
 		ElsIf CharSet = "." Then
 			Targets(Node, "any").Add(Regex.Count()); // стрелка для любого символа
+			Targets(Node, "").Add(0); // кроме конца текста
 		ElsIf CharSet = "(" Then
 			Count = 0;
 			While CharSet = "(" Do
@@ -243,6 +244,8 @@ Function CharSet(Lexer, Char)
 	ElsIf Char = "S" Then
 		CharSet = Lexer.SpaceSet;
 		Complement = True;
+	Else
+		CharSet = Char;
 	EndIf;
 	Return CharSet;
 EndFunction
