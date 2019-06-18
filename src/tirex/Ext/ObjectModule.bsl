@@ -29,37 +29,34 @@ EndFunction
 //  Boolean - признак что строка соответствует регулярному выражению
 //
 Function Match2(Regex, Str) Export
-	List = New Map; NewList = New Map;
-	List[Regex[1]] = Undefined;
+	List = New Array; NewList = New Array;
+	List.Add(1);
 	For Pos = 1 To StrLen(Str) + 1 Do
 		Char = Mid(Str, Pos, 1);
-		For Each Item In List Do
-			Node = Item.Key;
-			~init:
-			Targets = Node[Char];
-			If Targets = Undefined Then
-				Targets = Node["any"]; // разрешен любой символ?  
-			EndIf;
-			If Targets <> Undefined Then
-				Node["pos"] = Pos;
-				For Each Target In Targets Do
-					NewList[Regex[Target]] = Undefined;
-				EndDo;
-			EndIf;	
-			Target = Node["next"]; // можно пропустить без поглощения символа?
-			If Target <> Undefined Then
-				Node["pos"] = Pos - 1;
+		For Each Target In List Do
+			While Target <> Undefined Do 
 				Node = Regex[Target];
-				Goto ~init; 
-			EndIf;
+				Targets = Node[Char];
+				If Targets = Undefined Then
+					Targets = Node["any"]; // разрешен любой символ?  
+				EndIf;
+				If Targets <> Undefined Then
+					For Each Target In Targets Do
+						If NewList.Find(Target) = Undefined Then
+							NewList.Add(Target);
+						EndIf; 
+					EndDo;
+				EndIf;	
+				Target = Node["next"]; // можно пропустить без поглощения символа?
+			EndDo; 
 		EndDo;
 		Temp = List;
 		List = NewList;
 		NewList = Temp;
 		NewList.Clear();
 	EndDo;
-	For Each Item In List Do
-		If Item.Key["end"] = True Then
+	For Each Target In List Do
+		If Regex[Target]["end"] = True Then
 			Return True;
 		EndIf; 
 	EndDo; 
@@ -212,21 +209,21 @@ EndFunction
 
 Function MatchRecursive(Regex, Str, Val Index = 1, Val Pos = 1)
 	~init:
-	Map = Regex[Index];
+	Node = Regex[Index];
 	Char = Mid(Str, Pos, 1);
-	Targets = Map[Char];
+	Targets = Node[Char];
 	If Targets = Undefined Then
-		Targets = Map["any"]; // разрешен любой символ?
+		Targets = Node["any"]; // разрешен любой символ?
 		If Targets = Undefined Then
-			Index = Map["next"]; // можно пропустить без поглощения символа?
+			Index = Node["next"]; // можно пропустить без поглощения символа?
 			If Index <> Undefined Then
-				Map["pos"] = Pos - 1;
+				Node["pos"] = Pos - 1;
 				Goto ~init; // попытка сопоставить символ со следующим узлом
 			EndIf;
-			Return Map["end"] = True; // это разрешенное конечное состояние?
+			Return Node["end"] = True; // это разрешенное конечное состояние?
 		EndIf;  
 	EndIf; 
-	Map["pos"] = Pos;
+	Node["pos"] = Pos;
 	// эмуляция NFA
 	// выполняется попытка сопоставления в каждом из миров
 	For Each Index In Targets Do
@@ -234,7 +231,7 @@ Function MatchRecursive(Regex, Str, Val Index = 1, Val Pos = 1)
 			Return True;
 		EndIf; 
 	EndDo;
-	Index = Map["next"]; // можно пропустить без поглощения символа?
+	Index = Node["next"]; // можно пропустить без поглощения символа?
 	If Index <> Undefined Then
 		Return MatchRecursive(Regex, Str, Index, Pos)
 	EndIf; 
@@ -288,13 +285,13 @@ Function CharSet(Lexer, Char)
 		CharSet = Lexer.SpaceSet; 
 	ElsIf Char = "W" Then
 		CharSet = Lexer.AlphaSet;
-		Complement = True;
+		Lexer.Complement = True;
 	ElsIf Char = "D" Then
 		CharSet = Lexer.DigitSet;
-		Complement = True;
+		Lexer.Complement = True;
 	ElsIf Char = "S" Then
 		CharSet = Lexer.SpaceSet;
-		Complement = True;
+		Lexer.Complement = True;
 	Else
 		CharSet = Char;
 	EndIf;
