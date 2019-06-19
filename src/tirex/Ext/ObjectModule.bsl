@@ -131,8 +131,6 @@ Function Build(Pattern) Export
 		ElsIf CharSet = "" Then 
 			Targets(Node, "").Add(Regex.Count());
 			Break;
-		Else
-			AddArrows(Lexer, Node, CharSet, Regex.Count());
 		EndIf;
 		NextChar = NextChar(Lexer); 
 		If NextChar = "*" Then
@@ -144,9 +142,11 @@ Function Build(Pattern) Export
 			Node["next"] = Regex.Count();
 			CharSet = NextChar(Lexer);
 		ElsIf NextChar = "?" Then
+			AddArrows(Lexer, Node, CharSet, Regex.Count());
 			Node["next"] = Regex.Count();
 			CharSet = NextChar(Lexer);
 		Else
+			AddArrows(Lexer, Node, CharSet, Regex.Count());
 			CharSet = NextChar;
 		EndIf;
 		If CharSet = ")" Then
@@ -211,6 +211,7 @@ Function MatchRecursive(Regex, Str, Val Index = 1, Val Pos = 1)
 	~init:
 	Node = Regex[Index];
 	Char = Mid(Str, Pos, 1);
+	//Message(StrTemplate("pos=%1, chr='%2', node=%3", Pos, Char, Index));
 	Targets = Node[Char];
 	If Targets = Undefined Then
 		Targets = Node["any"]; // разрешен любой символ?
