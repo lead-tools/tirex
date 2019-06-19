@@ -95,14 +95,14 @@ Function Build(Pattern) Export
 	Node = NewNode(Regex); // первый узел
 	While True Do
 		If CharSet = "\" Then	
-			CharSet = CharSet(Lexer, NextChar(Lexer, True));
+			CharSet = CharSet(Lexer, NextChar(Lexer));
 			AddArrows(Lexer, Node, CharSet, Regex.Count());
 		ElsIf CharSet = "[" Then
 			List = New Array;
 			CharSet = NextChar(Lexer);
 			While CharSet <> "]" Do
 				If CharSet = "\" Then
-					CharSet = CharSet(Lexer, NextChar(Lexer, True));
+					CharSet = CharSet(Lexer, NextChar(Lexer));
 				EndIf;
 				If CharSet = "" Then
 					Raise "expected ']'";
@@ -122,6 +122,10 @@ Function Build(Pattern) Export
 			Node["++"] = Count;
 			Node["next"] = Regex.Count();
 			Node = NewNode(Regex);
+			Continue;
+		ElsIf CharSet = "_" Then
+			Lexer.IgnoreCase = Not Lexer.IgnoreCase;
+			CharSet = NextChar(Lexer);
 			Continue;
 		ElsIf CharSet = "*" Or CharSet = "?" Then
 			Raise StrTemplate("unexpected character '%1' in position '%2'", CharSet, Lexer.Pos);
@@ -255,16 +259,9 @@ Function Lexer(Pattern)
 	Return Lexer;
 EndFunction 
 
-Function NextChar(Lexer, Escape = False)
+Function NextChar(Lexer)
 	Lexer.Pos = Lexer.Pos + 1;
 	Char = Mid(Lexer.Pattern, Lexer.Pos, 1);
-	If Not Escape Then
-		While Char = "_" Do
-			Lexer.IgnoreCase = Not Lexer.IgnoreCase;
-			Lexer.Pos = Lexer.Pos + 1;
-			Char = Mid(Lexer.Pattern, Lexer.Pos, 1); // next char
-		EndDo; 
-	EndIf;
 	Return Char;
 EndFunction 
 
