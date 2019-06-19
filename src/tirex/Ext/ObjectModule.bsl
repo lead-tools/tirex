@@ -112,9 +112,6 @@ Function Build(Pattern) Export
 			EndDo;
 			CharSet = StrConcat(List);
 			AddArrows(Lexer, Node, CharSet, Regex.Count());
-		ElsIf CharSet = "." Then
-			Targets(Node, "any").Add(Regex.Count()); // стрелка для любого символа
-			Targets(Node, "").Add(0); // кроме конца текста
 		ElsIf CharSet = "(" Then
 			Count = 0;
 			While CharSet = "(" Do
@@ -134,11 +131,7 @@ Function Build(Pattern) Export
 		EndIf;
 		NextChar = NextChar(Lexer); 
 		If NextChar = "*" Then
-			If CharSet = "." Then
-				Targets(Node, "any").Add(Regex.Count() - 1);
-			Else
-				AddArrows(Lexer, Node, CharSet, Regex.Count() - 1);
-			EndIf; 
+			AddArrows(Lexer, Node, CharSet, Regex.Count() - 1);
 			Node["next"] = Regex.Count();
 			CharSet = NextChar(Lexer);
 		ElsIf NextChar = "?" Then
@@ -300,19 +293,24 @@ Function CharSet(Lexer, Char)
 EndFunction
 
 Procedure AddArrows(Lexer, Node, CharSet, Val Target)
-	If Lexer.Complement Then
-		Targets(Node, "any").Add(Target);
-		Target = 0; // arrow to null
-	EndIf;
-	For Num = 1 To Max(1, StrLen(CharSet)) Do
-		Char = Mid(CharSet, Num, 1); 
-		If Lexer.IgnoreCase Then
-			Targets(Node, Lower(Char)).Add(Target);
-			Targets(Node, Upper(Char)).Add(Target);
-		Else
-			Targets(Node, Char).Add(Target);
+	If CharSet = "." Then
+		Targets(Node, "any").Add(Target); // стрелка для любого символа
+		Targets(Node, "").Add(0);         // кроме конца текста
+	Else
+		If Lexer.Complement Then
+			Targets(Node, "any").Add(Target);
+			Target = 0; // стрелка на нулевой узел (запрещенное состояние)
 		EndIf;
-	EndDo;
+		For Num = 1 To Max(1, StrLen(CharSet)) Do
+			Char = Mid(CharSet, Num, 1); 
+			If Lexer.IgnoreCase Then
+				Targets(Node, Lower(Char)).Add(Target);
+				Targets(Node, Upper(Char)).Add(Target);
+			Else
+				Targets(Node, Char).Add(Target);
+			EndIf;
+		EndDo;
+	EndIf; 
 EndProcedure 
 
 Function Targets(Node, Key)
