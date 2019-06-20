@@ -427,4 +427,11 @@ Procedure Test12() Export
 	Message(StrTemplate("Test12 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
 EndProcedure
 
+Procedure Test13() Export
+	Regex = Build("If.*(_then_).*_ENDIF_;");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "If x > 0 Then x = 0 EndIf;");
+	Message(StrTemplate("Test13 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
 #EndRegion // Tests
