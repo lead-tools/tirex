@@ -1,7 +1,7 @@
 ﻿#Region Public
 
 // Function - Проверяет соответствует ли строка регулярному выражению
-// Сопоставление выполняется обходом в глубину без мемоизации.
+// Сопоставление выполняется обходом в глубину с мемоизацией.
 //
 // Не тестировалось. Использовать в бою нельзя.
 //
@@ -13,7 +13,9 @@
 //  Boolean - признак что строка соответствует регулярному выражению
 //
 Function Match(Regex, Str) Export
-	Return MatchRecursive(Regex, Str, 1, 1);
+	Memo = New Array(Regex.Count(), 1);
+	Ok = MatchRecursive(Regex, Memo, Str, 1, 1);
+	Return Ok;
 EndFunction
 
 // Альтернативное сопоставление обходом в ширину.
@@ -204,36 +206,35 @@ EndFunction
 
 #Region Private
 
-Function MatchRecursive(Regex, Str, Val Index = 1, Val Pos = 1)
-	~init:
-	Node = Regex[Index];
-	Char = Mid(Str, Pos, 1);
-	//Message(StrTemplate("pos=%1, chr='%2', node=%3", Pos, Char, Index));
+Function MatchRecursive(Regex, Memo, Str, Val Index = 1, Val Pos = 1)
+	Node = Regex[Index];		
+	NodeMemo = Memo[Index];
+	If NodeMemo.Find(Pos) <> Undefined Then
+		Return False;
+	EndIf; 	
+	Char = Mid(Str, Pos, 1);	
+	Index = Node["next"]; // можно пропустить без поглощения символа?
+	If Index <> Undefined Then 
+		If MatchRecursive(Regex, Memo, Str, Index, Pos) Then // попытка сопоставить символ со следующим узлом
+			Return True;
+		EndIf; 
+	EndIf;
 	Targets = Node[Char];
 	If Targets = Undefined Then
-		Targets = Node["any"]; // разрешен любой символ?
-		If Targets = Undefined Then
-			Index = Node["next"]; // можно пропустить без поглощения символа?
-			If Index <> Undefined Then
-				Node["pos"] = Pos - 1;
-				Goto ~init; // попытка сопоставить символ со следующим узлом
-			EndIf;
-			Return Node["end"] = True; // это разрешенное конечное состояние?
-		EndIf;  
-	EndIf; 
+		Targets = Node["any"]; // разрешен любой символ?  
+	EndIf;	
 	Node["pos"] = Pos;
 	// эмуляция NFA
 	// выполняется попытка сопоставления в каждом из миров
-	For Each Index In Targets Do
-		If MatchRecursive(Regex, Str, Index, Pos + 1) Then
-			Return True;
-		EndIf; 
-	EndDo;
-	Index = Node["next"]; // можно пропустить без поглощения символа?
-	If Index <> Undefined Then
-		Return MatchRecursive(Regex, Str, Index, Pos)
-	EndIf; 
-	Return False;
+	If Targets <> Undefined Then
+		For Each Index In Targets Do
+			If MatchRecursive(Regex, Memo, Str, Index, Pos + 1) Then
+				Return True;
+			EndIf; 
+		EndDo;
+	EndIf; 	
+	NodeMemo.Add(Pos);	
+	Return Node["end"] = True; // это разрешенное конечное состояние?
 EndFunction
 
 Function NewNode(Regex)
