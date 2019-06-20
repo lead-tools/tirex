@@ -332,59 +332,99 @@ Procedure RunAllTests() Export
 	Test5();
 	Test6();
 	Test7();
+	Test8();
+	Test9();
+	Test10();
+	Test11();
+	Test12();
 EndProcedure
 
 Function Elapsed(Start)
 	Return (CurrentUniversalDateInMilliseconds() - Start) / 1000;
 EndFunction
 
-Procedure Test1()
+Procedure Test1() Export
 	Regex = Build(".*_world_.*my \w*");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "World in my eyes");
-	Message(StrTemplate("Test1 - %1 (%2 ms)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test1 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
 EndProcedure
 
-Procedure Test2()
+Procedure Test2() Export
 	Regex = Build(".*_world_.*my \w*");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "Word in my eyes");
-	Message(StrTemplate("Test2 - %1 (%2 ms)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+	Message(StrTemplate("Test2 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
 EndProcedure
 
-Procedure Test3()
+Procedure Test3() Export
 	Regex = Build("a*a*a*a*a*a*a*a*a*a*a*a*a*a*aaaaaaaaaaaaaaa");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "aaaaaaaaaaaaaa");
-	Message(StrTemplate("Test3 - %1 (%2 ms)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+	Message(StrTemplate("Test3 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
 EndProcedure
 
-Procedure Test4()
+Procedure Test4() Export
 	Regex = Build("\W*digits");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "123456789digits");
-	Message(StrTemplate("Test4 - %1 (%2 ms)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test4 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
 EndProcedure
 
-Procedure Test5()
+Procedure Test5() Export
 	Regex = Build("\w*digits");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "123456789digits");
-	Message(StrTemplate("Test5 - %1 (%2 ms)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+	Message(StrTemplate("Test5 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
 EndProcedure
 
-Procedure Test6()
+Procedure Test6() Export
 	Regex = Build("_Case_.*_When_.*_Then_.*_Else_.*END");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "CASE Value WHEN 1 THEN '1' ELSE '0' END");
-	Message(StrTemplate("Test6 - %1 (%2 ms)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test6 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
 EndProcedure
 
-Procedure Test7()
+Procedure Test7() Export
 	Regex = Build("_\SoRd*_");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "wordDDD");
-	Message(StrTemplate("Test7 - %1 (%2 ms)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test7 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test8() Export
+	Regex = Build("word[147]*word1");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "word1417word1");
+	Message(StrTemplate("Test8 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test9() Export
+	Regex = Build("word[147]*word1");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "word14217word1");
+	Message(StrTemplate("Test9 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test10() Export
+	Regex = Build("word[\d]*word1");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "word14217word1");
+	Message(StrTemplate("Test10 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test11() Export
+	Regex = Build("word[\D]*word1");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "word14217word1");
+	Message(StrTemplate("Test11 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test12() Export
+	Regex = Build("word[\D]*word1");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "wordword1");
+	Message(StrTemplate("Test12 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
 EndProcedure
 
 #EndRegion // Tests
