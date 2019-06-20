@@ -224,8 +224,6 @@ Function MatchRecursive(Regex, Memo, Str, Val Index = 1, Val Pos = 1)
 		Targets = Node["any"]; // разрешен любой символ?  
 	EndIf;	
 	Node["pos"] = Pos;
-	// эмуляция NFA
-	// выполняется попытка сопоставления в каждом из миров
 	If Targets <> Undefined Then
 		For Each Index In Targets Do
 			If MatchRecursive(Regex, Memo, Str, Index, Pos + 1) Then
@@ -321,3 +319,70 @@ Function Targets(Node, Key)
 EndFunction  
 
 #EndRegion // Private
+
+#Region Tests
+
+Procedure RunAllTests() Export
+	Test1();
+	Test2();
+	Test3();
+	Test4();
+	Test5();
+	Test6();
+	Test7();
+EndProcedure
+
+Function Elapsed(Start)
+	Return (CurrentUniversalDateInMilliseconds() - Start) / 1000;
+EndFunction
+
+Procedure Test1()
+	Regex = Build(".*_world_.*my \w*");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "World in my eyes");
+	Message(StrTemplate("Test1 - %1 (%2 ms)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test2()
+	Regex = Build(".*_world_.*my \w*");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "Word in my eyes");
+	Message(StrTemplate("Test2 - %1 (%2 ms)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test3()
+	Regex = Build("a*a*a*a*a*a*a*a*a*a*a*a*a*a*aaaaaaaaaaaaaaa");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "aaaaaaaaaaaaaa");
+	Message(StrTemplate("Test3 - %1 (%2 ms)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test4()
+	Regex = Build("\W*digits");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "123456789digits");
+	Message(StrTemplate("Test4 - %1 (%2 ms)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test5()
+	Regex = Build("\w*digits");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "123456789digits");
+	Message(StrTemplate("Test5 - %1 (%2 ms)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test6()
+	Regex = Build("_Case_.*_When_.*_Then_.*_Else_.*END");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "CASE Value WHEN 1 THEN '1' ELSE '0' END");
+	Message(StrTemplate("Test6 - %1 (%2 ms)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test7()
+	Regex = Build("_\SoRd*_");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "wordDDD");
+	Message(StrTemplate("Test7 - %1 (%2 ms)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
+#EndRegion // Tests
