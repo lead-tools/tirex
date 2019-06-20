@@ -214,7 +214,10 @@ Function MatchRecursive(Regex, Memo, Str, Val Index = 1, Val Pos = 1)
 	EndIf; 	
 	Char = Mid(Str, Pos, 1);	
 	Index = Node["next"]; // можно пропустить без поглощения символа?
-	If Index <> Undefined Then 
+	If Index = Undefined Then
+		Node["pos"] = Pos;
+	Else
+		Node["pos"] = Pos - 1;
 		If MatchRecursive(Regex, Memo, Str, Index, Pos) Then // попытка сопоставить символ со следующим узлом
 			Return True;
 		EndIf; 
@@ -223,7 +226,6 @@ Function MatchRecursive(Regex, Memo, Str, Val Index = 1, Val Pos = 1)
 	If Targets = Undefined Then
 		Targets = Node["any"]; // разрешен любой символ?  
 	EndIf;	
-	Node["pos"] = Pos;
 	If Targets <> Undefined Then
 		For Each Index In Targets Do
 			If MatchRecursive(Regex, Memo, Str, Index, Pos + 1) Then
