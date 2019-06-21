@@ -171,7 +171,7 @@ Function Build(Pattern) Export
 			Node["--"] = Count;
 			Balance = Balance - Count;
 		EndIf;
-		Node = NewNode(Regex); 
+		Node = NewNode(Regex);
 		Lexer.Complement = False;
 	EndDo;
 	If Balance <> 0 Then
@@ -343,19 +343,13 @@ EndFunction
 #Region Tests
 
 Procedure RunAllTests() Export
-	Test1();
-	Test2();
-	Test3();
-	Test4();
-	Test5();
-	Test6();
-	Test7();
-	Test8();
-	Test9();
-	Test10();
-	Test11();
-	Test12();
-	Test13();
+	For Num = 1 To 17 Do
+		Try
+			Execute StrTemplate("Test%1()", Num);
+		Except
+			Message(BriefErrorDescription(ErrorInfo()));
+		EndTry;
+	EndDo;
 EndProcedure
 
 Function Elapsed(Start)
@@ -366,119 +360,119 @@ Procedure Test1() Export
 	Regex = Build(".*_world_.*my \w*");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "World in my eyes");
-	Message(StrTemplate("Test1 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test1 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test2() Export
 	Regex = Build(".*_world_.*my \w*");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "Word in my eyes");
-	Message(StrTemplate("Test2 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+	Message(StrTemplate("Test2 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test3() Export
 	Regex = Build("a*a*a*a*a*a*a*a*a*a*a*a*a*a*aaaaaaaaaaaaaaa");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "aaaaaaaaaaaaaa");
-	Message(StrTemplate("Test3 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+	Message(StrTemplate("Test3 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test4() Export
 	Regex = Build("\W*digits");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "123456789digits");
-	Message(StrTemplate("Test4 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test4 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test5() Export
 	Regex = Build("\w*digits");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "123456789digits");
-	Message(StrTemplate("Test5 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+	Message(StrTemplate("Test5 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test6() Export
 	Regex = Build("_Case_.*_When_.*_Then_.*_Else_.*END");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "CASE Value WHEN 1 THEN '1' ELSE '0' END");
-	Message(StrTemplate("Test6 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test6 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test7() Export
 	Regex = Build("_\SoRd*_");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "wordDDD");
-	Message(StrTemplate("Test7 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test7 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test8() Export
 	Regex = Build("word[147]*word1");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "word1417word1");
-	Message(StrTemplate("Test8 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test8 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test9() Export
 	Regex = Build("word[147]*word1");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "word14217word1");
-	Message(StrTemplate("Test9 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+	Message(StrTemplate("Test9 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test10() Export
 	Regex = Build("word[\d]*word1");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "word14217word1");
-	Message(StrTemplate("Test10 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test10 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test11() Export
 	Regex = Build("word[\D]*word1");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "word14217word1");
-	Message(StrTemplate("Test11 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+	Message(StrTemplate("Test11 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test12() Export
 	Regex = Build("word[\D]*word1");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "wordword1");
-	Message(StrTemplate("Test12 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test12 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test13() Export
 	Regex = Build("If.*(_then_).*_ENDIF_;");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "If x > 0 Then x = 0 EndIf;");
-	Message(StrTemplate("Test13 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test13 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test14() Export
 	Regex = Build("_If.*__(_then_).*_ENDIF_;");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "If x > 0 Then x = 0 EndIf;");
-	Message(StrTemplate("Test14 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+	Message(StrTemplate("Test14 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test15() Export
 	Regex = Build(".*xyz");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "sfds1 $565 fdv\_fvdf dfvdf\0\9\)xyz");
-	Message(StrTemplate("Test15 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test15 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test16() Export
 	Regex = Build("\\\(\)\_\*");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "\()_*");
-	Message(StrTemplate("Test16 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test16 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test17() Export
 	Regex = Build("a+b+c+");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "aaabcccc");
-	Message(StrTemplate("Test17 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+	Message(StrTemplate("Test17 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 #EndRegion // Tests
