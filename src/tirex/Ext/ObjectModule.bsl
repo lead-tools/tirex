@@ -137,7 +137,7 @@ Function Build(Pattern) Export
 			Lexer.IgnoreCase = Not Lexer.IgnoreCase;
 			CharSet = NextChar(Lexer);
 			Continue;
-		ElsIf CharSet = "*" Or CharSet = "?" Then
+		ElsIf CharSet = "*" Or CharSet = "+" Or CharSet = "?" Then
 			Raise StrTemplate("unexpected character '%1' in position '%2'", CharSet, Lexer.Pos);
 		ElsIf CharSet = "" Then 
 			Targets(Node, "").Add(Regex.Count());
@@ -145,6 +145,12 @@ Function Build(Pattern) Export
 		EndIf;
 		NextChar = NextChar(Lexer); 
 		If NextChar = "*" Then
+			AddArrows(Lexer, Node, CharSet, Regex.Count() - 1);
+			Node["next"] = Regex.Count();
+			CharSet = NextChar(Lexer);
+		ElsIf NextChar = "+" Then
+			AddArrows(Lexer, Node, CharSet, Regex.Count());
+			Node = NewNode(Regex);
 			AddArrows(Lexer, Node, CharSet, Regex.Count() - 1);
 			Node["next"] = Regex.Count();
 			CharSet = NextChar(Lexer);
@@ -441,6 +447,34 @@ Procedure Test13() Export
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "If x > 0 Then x = 0 EndIf;");
 	Message(StrTemplate("Test13 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test14() Export
+	Regex = Build("_If.*__(_then_).*_ENDIF_;");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "If x > 0 Then x = 0 EndIf;");
+	Message(StrTemplate("Test14 - %1 (%2 sec)", ?(Ok, "Failed", "Passed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test15() Export
+	Regex = Build(".*xyz");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "sfds1 $565 fdv\_fvdf dfvdf\0\9\)xyz");
+	Message(StrTemplate("Test15 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test16() Export
+	Regex = Build("\\\(\)\_\*");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "\()_*");
+	Message(StrTemplate("Test16 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test17() Export
+	Regex = Build("a+b+c+");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "aaabcccc");
+	Message(StrTemplate("Test17 - %1 (%2 sec)", ?(Ok, "Passed", "Failed"), Elapsed(Start)));
 EndProcedure
 
 #EndRegion // Tests
