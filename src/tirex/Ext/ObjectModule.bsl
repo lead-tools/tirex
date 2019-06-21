@@ -283,6 +283,10 @@ EndFunction
 Function CharSet(Lexer, Char)
 	If Char = "n" Then
 		CharSet = Chars.LF;
+	ElsIf Char = "r" Then
+		CharSet = Chars.CR;
+	ElsIf Char = "t" Then
+		CharSet = Chars.Tab;
 	ElsIf Char = "w" Then
 		CharSet = Lexer.AlphaSet;
 	ElsIf Char = "d" Then
