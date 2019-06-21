@@ -125,6 +125,14 @@ Function Build(Pattern) Export
 			Node["next"] = Regex.Count();
 			Node = NewNode(Regex);
 			Continue;
+		ElsIf CharSet = ")" Then
+			Count = 0;
+			While CharSet = ")" Do
+				Count = Count + 1;
+				CharSet = NextChar(Lexer);
+			EndDo;
+			Node["--"] = Count;
+			Balance = Balance - Count;
 		ElsIf CharSet = "_" Then
 			Lexer.IgnoreCase = Not Lexer.IgnoreCase;
 			CharSet = NextChar(Lexer);
@@ -337,6 +345,7 @@ Procedure RunAllTests() Export
 	Test10();
 	Test11();
 	Test12();
+	Test13();
 EndProcedure
 
 Function Elapsed(Start)
