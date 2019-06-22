@@ -131,8 +131,11 @@ Function Build(Pattern) Export
 				Count = Count + 1;
 				CharSet = NextChar(Lexer);
 			EndDo;
-			Node["--"] = Count;
 			Balance = Balance - Count;
+			Node["next"] = Regex.Count();
+			Node["--"] = Count;
+			Node = NewNode(Regex);
+			Continue;
 		ElsIf CharSet = "_" Then
 			Lexer.IgnoreCase = Not Lexer.IgnoreCase;
 			CharSet = NextChar(Lexer);
@@ -161,15 +164,6 @@ Function Build(Pattern) Export
 		Else
 			AddArrows(Lexer, Node, CharSet, Regex.Count());
 			CharSet = NextChar;
-		EndIf;
-		If CharSet = ")" Then
-			Count = 0;
-			While CharSet = ")" Do
-				Count = Count + 1;
-				CharSet = NextChar(Lexer);
-			EndDo;
-			Node["--"] = Count;
-			Balance = Balance - Count;
 		EndIf;
 		Node = NewNode(Regex);
 		Lexer.Complement = False;
@@ -225,13 +219,11 @@ Function MatchRecursive(Regex, Memo, Str, Val Index = 1, Val Pos = 1)
 	NodeMemo = Memo[Index];
 	If NodeMemo.Find(Pos) <> Undefined Then
 		Return False;
-	EndIf; 	
+	EndIf;
+	Node["pos"] = Pos;
 	Char = Mid(Str, Pos, 1);	
 	Index = Node["next"]; // можно пропустить без поглощения символа?
-	If Index = Undefined Then
-		Node["pos"] = Pos;
-	Else
-		Node["pos"] = Pos - 1;
+	If Index <> Undefined Then
 		If MatchRecursive(Regex, Memo, Str, Index, Pos) Then // попытка сопоставить символ со следующим узлом
 			Return True;
 		EndIf; 
@@ -476,3 +468,50 @@ Procedure Test17() Export
 EndProcedure
 
 #EndRegion // Tests
+
+#Region Examples
+
+// Вывод списка экспортных процедур из этого модуля
+// Например, для данной процедуры будет выведено:
+// Example1()
+Procedure Example1() Export
+	Regex = Build("Procedure (\w*\d*\(.*\)) Export");
+	Reader = New TextReader;
+	Reader.Open("ObjectModule.bsl");
+	Start = CurrentUniversalDateInMilliseconds();
+	Str = Reader.ReadLine();
+	While Str <> Undefined Do
+		If Match(Regex, Str) Then
+			Captures = Captures(Regex);
+			For Each Item In Captures Do
+				Message(Mid(Str, Item.Beg, Item.End - Item.Beg));
+			EndDo;
+		EndIf;
+		Str = Reader.ReadLine();
+	EndDo;
+	Message(StrTemplate("Example1 - Completed (%1 sec)", Elapsed(Start)));
+EndProcedure
+
+// Вывод списка имен и номеров экспортных процедур из этого модуля
+// Например? для данной процедуры будет выведено:
+// Example
+// 2
+Procedure Example2() Export
+	Regex = Build("Procedure (\w*)(\d*)\(\) Export");
+	Reader = New TextReader;
+	Reader.Open("ObjectModule.bsl");
+	Start = CurrentUniversalDateInMilliseconds();
+	Str = Reader.ReadLine();
+	While Str <> Undefined Do
+		If Match(Regex, Str) Then
+			Captures = Captures(Regex);
+			For Each Item In Captures Do
+				Message(Mid(Str, Item.Beg, Item.End - Item.Beg));
+			EndDo;
+		EndIf;
+		Str = Reader.ReadLine();
+	EndDo;
+	Message(StrTemplate("Example2 - Completed (%1 sec)", Elapsed(Start)));
+EndProcedure
+
+#EndRegion // Examples
