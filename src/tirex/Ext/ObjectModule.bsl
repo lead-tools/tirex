@@ -472,8 +472,10 @@ EndProcedure
 #Region Examples
 
 // Вывод списка экспортных процедур из этого модуля
+// Например, для данной процедуры будет выведено:
+// Example1()
 Procedure Example1() Export
-	Regex = Build("Procedure (\w*\d*\(\)) Export");
+	Regex = Build("Procedure (\w*\d*\(.*\)) Export");
 	Reader = New TextReader;
 	Reader.Open("ObjectModule.bsl");
 	Start = CurrentUniversalDateInMilliseconds();
@@ -487,7 +489,29 @@ Procedure Example1() Export
 		EndIf;
 		Str = Reader.ReadLine();
 	EndDo;
-	Message(StrTemplate("Test00 - %1 (%2 sec)", "Passed", Elapsed(Start)));
+	Message(StrTemplate("Example1 - Completed (%1 sec)", Elapsed(Start)));
+EndProcedure
+
+// Вывод списка имен и номеров экспортных процедур из этого модуля
+// Например? для данной процедуры будет выведено:
+// Example
+// 2
+Procedure Example2() Export
+	Regex = Build("Procedure (\w*)(\d*)\(\) Export");
+	Reader = New TextReader;
+	Reader.Open("ObjectModule.bsl");
+	Start = CurrentUniversalDateInMilliseconds();
+	Str = Reader.ReadLine();
+	While Str <> Undefined Do
+		If Match(Regex, Str) Then
+			Captures = Captures(Regex);
+			For Each Item In Captures Do
+				Message(Mid(Str, Item.Beg, Item.End - Item.Beg));
+			EndDo;
+		EndIf;
+		Str = Reader.ReadLine();
+	EndDo;
+	Message(StrTemplate("Example2 - Completed (%1 sec)", Elapsed(Start)));
 EndProcedure
 
 #EndRegion // Examples
