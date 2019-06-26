@@ -98,7 +98,8 @@ Function Build(Pattern) Export
 	While True Do
 		If CharSet = "\" Then	
 			CharSet = CharSet(Lexer, NextChar(Lexer));
-			AddArrows(Lexer, Node, CharSet, Regex.Count());
+		ElsIf CharSet = "." Then
+			CharSet = Lexer.AnyChar;
 		ElsIf CharSet = "[" Then
 			List = New Array;
 			CharSet = NextChar(Lexer);
@@ -259,6 +260,7 @@ Function Lexer(Pattern)
 	Lexer.Insert("DigitSet", DigitSet);
 	Lexer.Insert("SpaceSet", SpaceSet);
 	Lexer.Insert("Pattern", Pattern);
+	Lexer.Insert("AnyChar", New Structure);
 	// состояние
 	Lexer.Insert("Pos", 0);
 	Lexer.Insert("IgnoreCase", False);
@@ -301,7 +303,7 @@ Function CharSet(Lexer, Char)
 EndFunction
 
 Procedure AddArrows(Lexer, Node, CharSet, Val Target)
-	If CharSet = "." Then
+	If CharSet = Lexer.AnyChar Then
 		Targets(Node, "any").Add(Target); // стрелка для любого символа
 		Targets(Node, "").Add(0);         // кроме конца текста
 	Else
@@ -335,11 +337,11 @@ EndFunction
 #Region Tests
 
 Procedure RunAllTests() Export
-	For Num = 1 To 17 Do
+	For Num = 1 To 19 Do
 		Try
 			Execute StrTemplate("Test%1()", Num);
 		Except
-			Message(BriefErrorDescription(ErrorInfo()));
+			Message(ErrorDescription());
 		EndTry;
 	EndDo;
 EndProcedure
@@ -467,6 +469,20 @@ Procedure Test17() Export
 	Message(StrTemplate("Test17 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
+Procedure Test18() Export
+	Regex = Build("\.");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, ".");
+	Message(StrTemplate("Test18 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test19() Export
+	Regex = Build("\.");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "a");
+	Message(StrTemplate("Test19 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
+EndProcedure
+
 #EndRegion // Tests
 
 #Region Examples
@@ -493,7 +509,7 @@ Procedure Example1() Export
 EndProcedure
 
 // Вывод списка имен и номеров экспортных процедур из этого модуля
-// Например? для данной процедуры будет выведено:
+// Например, для данной процедуры будет выведено:
 // Example
 // 2
 Procedure Example2() Export
