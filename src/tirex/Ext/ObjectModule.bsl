@@ -101,8 +101,16 @@ Function Build(Pattern) Export
 		ElsIf CharSet = "." Then
 			CharSet = Lexer.AnyChar;
 		ElsIf CharSet = "[" Then
-			List = New Array;
+			Set = New Map;	
+			Complement = False;
 			CharSet = NextChar(Lexer);
+			If CharSet = "^" Then
+				Complement = True;
+				CharSet = NextChar(Lexer);
+			ElsIf CharSet = "]" Then
+				Set[CharSet] = Complement;
+				CharSet = NextChar(Lexer);
+			EndIf;
 			While CharSet <> "]" Do
 				If CharSet = "\" Then
 					CharSet = CharSet(Lexer, NextChar(Lexer));
@@ -110,11 +118,14 @@ Function Build(Pattern) Export
 				If CharSet = "" Then
 					Raise "expected ']'";
 				EndIf;
-				List.Add(CharSet);
+				If Complement Then
+					Lexer.Complement = Not Lexer.Complement;
+				EndIf;
+				Set[CharSet] = Lexer.Complement;
+				Lexer.Complement = False;
 				CharSet = NextChar(Lexer);
 			EndDo;
-			CharSet = StrConcat(List);
-			AddArrows(Lexer, Node, CharSet, Regex.Count());
+			CharSet = Set;
 		ElsIf CharSet = "(" Then
 			Count = 0;
 			While CharSet = "(" Do
@@ -306,6 +317,11 @@ Procedure AddArrows(Lexer, Node, CharSet, Val Target)
 	If CharSet = Lexer.AnyChar Then
 		Targets(Node, "any").Add(Target); // стрелка для любого символа
 		Targets(Node, "").Add(0);         // кроме конца текста
+	ElsIf TypeOf(CharSet) = Type("Map") Then
+		For Each Item In CharSet Do
+			Lexer.Complement = Item.Value;
+			AddArrows(Lexer, Node, Item.Key, Target);
+		EndDo;
 	Else
 		If Lexer.Complement Then
 			Targets(Node, "any").Add(Target);
@@ -337,7 +353,7 @@ EndFunction
 #Region Tests
 
 Procedure RunAllTests() Export
-	For Num = 1 To 19 Do
+	For Num = 1 To 24 Do
 		Try
 			Execute StrTemplate("Test%1()", Num);
 		Except
@@ -481,6 +497,41 @@ Procedure Test19() Export
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "a");
 	Message(StrTemplate("Test19 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test20() Export
+	Regex = Build("[]]*");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "]]]]");
+	Message(StrTemplate("Test20 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test21() Export
+	Regex = Build("[\w]*");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "sadadw");
+	Message(StrTemplate("Test21 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test22() Export
+	Regex = Build("[\W]*");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "sadadw");
+	Message(StrTemplate("Test22 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test23() Export
+	Regex = Build("[\W]*");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "12314324");
+	Message(StrTemplate("Test23 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
+EndProcedure
+
+Procedure Test24() Export
+	Regex = Build("[^\W]*");
+	Start = CurrentUniversalDateInMilliseconds();
+	Ok = Match(Regex, "sadadw");
+	Message(StrTemplate("Test24 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 #EndRegion // Tests
