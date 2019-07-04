@@ -3,8 +3,6 @@
 // Function - Проверяет соответствует ли строка регулярному выражению
 // Сопоставление выполняется обходом в глубину с мемоизацией.
 //
-// Не тестировалось. Использовать в бою нельзя.
-//
 // Parameters:
 //  Regex	 - Array - скомпилированная функцией Build() регулярка 
 //  Str		 - String - проверяемая строка 
@@ -67,8 +65,6 @@ EndFunction
 
 // Function - Возвращает скомпилированную регулярку
 //
-// Не тестировалось. Использовать в бою нельзя.
-//
 // Parameters:
 //  Pattern - String - регулярное выражение
 //		\w - любая буква
@@ -78,11 +74,15 @@ EndFunction
 //		\s - любой невидимый символ
 //		\S - любой символ кроме невидимых
 //		\n - перевод строки
+//		\r - возврат каретки
+//		\t - табуляция
 //		.  - любой символ
 //		*  - замыкание Клини
+//		+  - один или несколько
 //		?  - один или ничего
 //		() - захваты
-//		[] - один символ из набора
+//		[...] - один символ из набора
+//		[^...] - любой символ, кроме символов из набора
 //		_  - включить/выключить режим case insensitive
 // 
 // Returns:
@@ -188,9 +188,11 @@ Function Build(Pattern) Export
 	Return Regex;
 EndFunction 
 
-// Function - Возвращает захваченные диапазоны из регулярки
-//
-// Не тестировалось. Использовать в бою нельзя.
+// Function - Возвращает захваченные диапазоны из регулярки.
+// Порядок диапазонов в списке определен так:
+// если строка "xy" и регулярное выражение "((x)(y))",
+// то будут захвачены диапазоны [{"Pos":1,"Len":1},{"Pos":2,"Len":1},{"Pos":1,"Len":2}]
+// т.е. "x", "y", "xy"
 //
 // Parameters:
 //  Regex	 - Array - регулярка после выполнения на ней Match() 
@@ -199,11 +201,12 @@ EndFunction
 //  Array - список захваченных диапазонов
 //
 Function Captures(Regex) Export
+	Number = New TypeDescription("Number");
 	Captures = New Array;
 	Stack = New Map;
 	Level = 0;
 	For Each Node In Regex Do
-		Pos = Node["pos"]; 
+		Pos = Number.AdjustValue(Node["pos"]); 
 		Inc = Node["++"];
 		If Inc <> Undefined Then
 			For n = 1 To Inc Do
@@ -214,7 +217,8 @@ Function Captures(Regex) Export
 		Dec = Node["--"];
 		If Dec <> Undefined Then
 			For n = 1 To Dec Do
-				Captures.Add(New Structure("Beg, End", Stack[Level], Pos));
+				Beg = Number.AdjustValue(Stack[Level]);
+				Captures.Add(New Structure("Pos, Len", Beg, Pos - Beg));
 				Level = Level - 1;
 			EndDo;
 		EndIf; 
@@ -551,7 +555,7 @@ Procedure Example1() Export
 		If Match(Regex, Str) Then
 			Captures = Captures(Regex);
 			For Each Item In Captures Do
-				Message(Mid(Str, Item.Beg, Item.End - Item.Beg));
+				Message(Mid(Str, Item.Pos, Item.Len));
 			EndDo;
 		EndIf;
 		Str = Reader.ReadLine();
@@ -573,12 +577,36 @@ Procedure Example2() Export
 		If Match(Regex, Str) Then
 			Captures = Captures(Regex);
 			For Each Item In Captures Do
-				Message(Mid(Str, Item.Beg, Item.End - Item.Beg));
+				Message(Mid(Str, Item.Pos, Item.Len));
 			EndDo;
 		EndIf;
 		Str = Reader.ReadLine();
 	EndDo;
 	Message(StrTemplate("Example2 - Completed (%1 sec)", Elapsed(Start)));
+EndProcedure
+
+// Вывод списка простых условий на равенство. Это пример вложенных захватов.
+// Например, для кода 'ElsIf Char = "d" Then' будет выведено:
+// Char
+// "d"
+// Char = "d"
+Procedure Example3() Export
+	Regex = Build(".*If\s+((\S+)\s*=\s*(\S+))\s*Then.*");
+	Reader = New TextReader;
+	Reader.Open("ObjectModule.bsl");
+	Start = CurrentUniversalDateInMilliseconds();
+	Str = Reader.ReadLine();
+	While Str <> Undefined Do
+		If Match(Regex, Str) Then
+			Captures = Captures(Regex);
+			For Each Item In Captures Do
+				Message(Mid(Str, Item.Pos, Item.Len));
+			EndDo;
+			Message(Chars.LF);
+		EndIf;
+		Str = Reader.ReadLine();
+	EndDo;
+	Message(StrTemplate("Example3 - Completed (%1 sec)", Elapsed(Start)));
 EndProcedure
 
 #EndRegion // Examples
