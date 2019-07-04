@@ -1,6 +1,6 @@
 ﻿#Region Public
 
-// Function - Проверяет соответствует ли строка регулярному выражению
+// Function - Проверяет соответствует ли строка регулярному выражению.
 // Сопоставление выполняется обходом в глубину с мемоизацией.
 //
 // Parameters:
@@ -16,8 +16,9 @@ Function Match(Regex, Str) Export
 	Return Ok;
 EndFunction
 
-// Альтернативное сопоставление обходом в ширину.
-// В текущей реализации не позволяет получить захваты.
+// Function - Ищет в строке первое совпадение с регулярным выражением.
+// Сопоставление выполняется обходом в ширину.
+// В текущей реализации возвращает только один захват на все выражение (скобки в выражении игнорируются).
 //
 // Не тестировалось. Использовать в бою нельзя.
 //
@@ -26,41 +27,46 @@ EndFunction
 //  Str		 - String - проверяемая строка 
 // 
 // Returns:
-//  Boolean - признак что строка соответствует регулярному выражению
+//  Undefined, Structure("Pos, Len") - найденный диапазон
 //
-Function Match2(Regex, Str) Export
-	List = New Array; NewList = New Array;
-	List.Add(1);
-	For Pos = 1 To StrLen(Str) + 1 Do
-		Char = Mid(Str, Pos, 1);
-		For Each Target In List Do
-			While Target <> Undefined Do 
-				Node = Regex[Target];
-				Targets = Node[Char];
-				If Targets = Undefined Then
-					Targets = Node["any"]; // разрешен любой символ?  
-				EndIf;
-				If Targets <> Undefined Then
-					For Each Target In Targets Do
-						If NewList.Find(Target) = Undefined Then
-							NewList.Add(Target);
-						EndIf; 
-					EndDo;
-				EndIf;	
-				Target = Node["next"]; // можно пропустить без поглощения символа?
-			EndDo; 
+Function Search(Regex, Str) Export
+	List = New Array;
+	NewList = New Array;
+	For Beg = 1 To StrLen(Str) Do
+		List.Add(1);
+		For Pos = Beg To StrLen(Str) Do
+			Char = Mid(Str, Pos, 1);
+			For Each Target In List Do
+				While Target <> Undefined Do 
+					Node = Regex[Target];
+					If Node["end"] = True Then // это разрешенное конечное состояние?
+						Return New Structure("Pos, Len", Beg, Pos - Beg);
+					EndIf;
+					Targets = Node[Char];
+					If Targets = Undefined Then
+						Targets = Node["any"]; // разрешен любой символ?  
+					EndIf;
+					If Targets <> Undefined Then
+						For Each Target In Targets Do
+							If NewList.Find(Target) = Undefined Then
+								NewList.Add(Target);
+							EndIf; 
+						EndDo;
+					EndIf;	
+					Target = Node["next"]; // можно пропустить без поглощения символа?
+				EndDo; 
+			EndDo;
+			Temp = List;
+			List = NewList;
+			NewList = Temp;
+			NewList.Clear();
+			If List.Count() = 0 Then
+				Break;
+			EndIf;
 		EndDo;
-		Temp = List;
-		List = NewList;
-		NewList = Temp;
-		NewList.Clear();
+		List.Clear();
 	EndDo;
-	For Each Target In List Do
-		If Regex[Target]["end"] = True Then
-			Return True;
-		EndIf; 
-	EndDo; 
-	Return False;
+	Return Undefined;
 EndFunction
 
 // Function - Возвращает скомпилированную регулярку
@@ -84,6 +90,7 @@ EndFunction
 //		[...] - один символ из набора
 //		[^...] - любой символ, кроме символов из набора
 //		_  - включить/выключить режим case insensitive
+//		$ - конец строки
 // 
 // Returns:
 // Array - скомпилированная регулярка
@@ -95,7 +102,7 @@ Function Build(Pattern) Export
 	Balance = 0;
 	Node = NewNode(Regex); // нулевой узел
 	Node = NewNode(Regex); // первый узел
-	While True Do
+	While CharSet <> "" Do
 		If CharSet = "\" Then	
 			CharSet = CharSet(Lexer, NextChar(Lexer));
 		ElsIf CharSet = "." Then
@@ -152,11 +159,12 @@ Function Build(Pattern) Export
 			Lexer.IgnoreCase = Not Lexer.IgnoreCase;
 			CharSet = NextChar(Lexer);
 			Continue;
+		ElsIf CharSet = "$" Then
+			Targets(Node, "").Add(Regex.Count());
+			Node = NewNode(Regex);
+			Break;
 		ElsIf CharSet = "*" Or CharSet = "+" Or CharSet = "?" Then
 			Raise StrTemplate("unexpected character '%1' in position '%2'", CharSet, Lexer.Pos);
-		ElsIf CharSet = "" Then 
-			Targets(Node, "").Add(Regex.Count());
-			Break;
 		EndIf;
 		NextChar = NextChar(Lexer); 
 		If NextChar = "*" Then
@@ -181,9 +189,8 @@ Function Build(Pattern) Export
 		Lexer.Complement = False;
 	EndDo;
 	If Balance <> 0 Then
-		Raise "unbalanced brackets"
+		Raise "unbalanced brackets";
 	EndIf; 
-	Node = NewNode(Regex);
 	Node["end"] = True; // разрешенное конечное состояние
 	Return Regex;
 EndFunction 
@@ -230,17 +237,17 @@ EndFunction
 
 #Region Private
 
-Function MatchRecursive(Regex, Memo, Str, Val Index = 1, Val Pos = 1)
-	Node = Regex[Index];		
-	NodeMemo = Memo[Index];
+Function MatchRecursive(Regex, Memo, Str, Val Target = 1, Val Pos = 1)
+	Node = Regex[Target];		
+	NodeMemo = Memo[Target];
 	If NodeMemo.Find(Pos) <> Undefined Then
 		Return False;
 	EndIf;
 	Node["pos"] = Pos;
 	Char = Mid(Str, Pos, 1);	
-	Index = Node["next"]; // можно пропустить без поглощения символа?
-	If Index <> Undefined Then
-		If MatchRecursive(Regex, Memo, Str, Index, Pos) Then // попытка сопоставить символ со следующим узлом
+	Target = Node["next"]; // можно пропустить без поглощения символа?
+	If Target <> Undefined Then
+		If MatchRecursive(Regex, Memo, Str, Target, Pos) Then // попытка сопоставить символ со следующим узлом
 			Return True;
 		EndIf; 
 	EndIf;
@@ -249,8 +256,8 @@ Function MatchRecursive(Regex, Memo, Str, Val Index = 1, Val Pos = 1)
 		Targets = Node["any"]; // разрешен любой символ?  
 	EndIf;	
 	If Targets <> Undefined Then
-		For Each Index In Targets Do
-			If MatchRecursive(Regex, Memo, Str, Index, Pos + 1) Then
+		For Each Target In Targets Do
+			If MatchRecursive(Regex, Memo, Str, Target, Pos + 1) Then
 				Return True;
 			EndIf; 
 		EndDo;
@@ -371,168 +378,168 @@ Function Elapsed(Start)
 EndFunction
 
 Procedure Test1() Export
-	Regex = Build(".*_world_.*my \w*");
+	Regex = Build(".*_world_.*my \w*$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "World in my eyes");
 	Message(StrTemplate("Test1 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test2() Export
-	Regex = Build(".*_world_.*my \w*");
+	Regex = Build(".*_world_.*my \w*$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "Word in my eyes");
 	Message(StrTemplate("Test2 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test3() Export
-	Regex = Build("a*a*a*a*a*a*a*a*a*a*a*a*a*a*aaaaaaaaaaaaaaa");
+	Regex = Build("a*a*a*a*a*a*a*a*a*a*a*a*a*a*aaaaaaaaaaaaaaa$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "aaaaaaaaaaaaaa");
 	Message(StrTemplate("Test3 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test4() Export
-	Regex = Build("\W*digits");
+	Regex = Build("\W*digits$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "123456789digits");
 	Message(StrTemplate("Test4 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test5() Export
-	Regex = Build("\w*digits");
+	Regex = Build("\w*digits$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "123456789digits");
 	Message(StrTemplate("Test5 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test6() Export
-	Regex = Build("_Case_.*_When_.*_Then_.*_Else_.*END");
+	Regex = Build("_Case_.*_When_.*_Then_.*_Else_.*END$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "CASE Value WHEN 1 THEN '1' ELSE '0' END");
 	Message(StrTemplate("Test6 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test7() Export
-	Regex = Build("_\SoRd*_");
+	Regex = Build("_\SoRd*_$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "wordDDD");
 	Message(StrTemplate("Test7 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test8() Export
-	Regex = Build("word[147]*word1");
+	Regex = Build("word[147]*word1$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "word1417word1");
 	Message(StrTemplate("Test8 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test9() Export
-	Regex = Build("word[147]*word1");
+	Regex = Build("word[147]*word1$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "word14217word1");
 	Message(StrTemplate("Test9 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test10() Export
-	Regex = Build("word[\d]*word1");
+	Regex = Build("word[\d]*word1$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "word14217word1");
 	Message(StrTemplate("Test10 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test11() Export
-	Regex = Build("word[\D]*word1");
+	Regex = Build("word[\D]*word1$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "word14217word1");
 	Message(StrTemplate("Test11 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test12() Export
-	Regex = Build("word[\D]*word1");
+	Regex = Build("word[\D]*word1$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "wordword1");
 	Message(StrTemplate("Test12 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test13() Export
-	Regex = Build("If.*(_then_).*_ENDIF_;");
+	Regex = Build("If.*(_then_).*_ENDIF_;$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "If x > 0 Then x = 0 EndIf;");
 	Message(StrTemplate("Test13 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test14() Export
-	Regex = Build("_If.*__(_then_).*_ENDIF_;");
+	Regex = Build("_If.*__(_then_).*_ENDIF_;$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "If x > 0 Then x = 0 EndIf;");
 	Message(StrTemplate("Test14 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test15() Export
-	Regex = Build(".*xyz");
+	Regex = Build(".*xyz$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "sfds1 $565 fdv\_fvdf dfvdf\0\9\)xyz");
 	Message(StrTemplate("Test15 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test16() Export
-	Regex = Build("\\\(\)\_\*");
+	Regex = Build("\\\(\)\_\*$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "\()_*");
 	Message(StrTemplate("Test16 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test17() Export
-	Regex = Build("a+b+c+");
+	Regex = Build("a+b+c+$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "aaabcccc");
 	Message(StrTemplate("Test17 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test18() Export
-	Regex = Build("\.");
+	Regex = Build("\.$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, ".");
 	Message(StrTemplate("Test18 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test19() Export
-	Regex = Build("\.");
+	Regex = Build("\.$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "a");
 	Message(StrTemplate("Test19 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test20() Export
-	Regex = Build("[]]*");
+	Regex = Build("[]]*$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "]]]]");
 	Message(StrTemplate("Test20 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test21() Export
-	Regex = Build("[\w]*");
+	Regex = Build("[\w]+$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "sadadw");
 	Message(StrTemplate("Test21 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test22() Export
-	Regex = Build("[\W]*");
+	Regex = Build("[\W]+$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "sadadw");
 	Message(StrTemplate("Test22 - %1 (%2 sec)", ?(Ok, "Failed!", "Passed"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test23() Export
-	Regex = Build("[\W]*");
+	Regex = Build("[\W]+$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "12314324");
 	Message(StrTemplate("Test23 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
 EndProcedure
 
 Procedure Test24() Export
-	Regex = Build("[^\W]*");
+	Regex = Build("[^\W]+$");
 	Start = CurrentUniversalDateInMilliseconds();
 	Ok = Match(Regex, "sadadw");
 	Message(StrTemplate("Test24 - %1 (%2 sec)", ?(Ok, "Passed", "Failed!"), Elapsed(Start)));
@@ -607,6 +614,24 @@ Procedure Example3() Export
 		Str = Reader.ReadLine();
 	EndDo;
 	Message(StrTemplate("Example3 - Completed (%1 sec)", Elapsed(Start)));
+EndProcedure
+
+// Поиск первого совпадения с регулярным выражением. Это пример использования Search().
+// Будет выведено:
+// `Example4() Export`
+Procedure Example4() Export
+	Regex = Build("Example4.*Export");
+	Reader = New TextReader;
+	Reader.Open("ObjectModule.bsl");
+	Str = Reader.Read();
+	Start = CurrentUniversalDateInMilliseconds();
+	Capture = Search(Regex, Str);
+	If Capture = Undefined Then
+		Message("fail");
+	Else
+		Message("`" + Mid(Str, Capture.Pos, Capture.Len) + "`");
+	EndIf;
+	Message(StrTemplate("Example4 - Completed (%1 sec)", Elapsed(Start)));
 EndProcedure
 
 #EndRegion // Examples
