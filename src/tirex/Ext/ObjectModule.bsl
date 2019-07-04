@@ -39,7 +39,7 @@ Function Search(Regex, Str) Export
 			For Each Target In List Do
 				While Target <> Undefined Do 
 					Node = Regex[Target];
-					If Node["end"] = True Then
+					If Node["end"] = True Then // это разрешенное конечное состояние?
 						Return New Structure("Pos, Len", Beg, Pos - Beg);
 					EndIf;
 					Targets = Node[Char];
@@ -189,7 +189,7 @@ Function Build(Pattern) Export
 		Lexer.Complement = False;
 	EndDo;
 	If Balance <> 0 Then
-		Raise "unbalanced brackets"
+		Raise "unbalanced brackets";
 	EndIf; 
 	Node["end"] = True; // разрешенное конечное состояние
 	Return Regex;
@@ -237,17 +237,17 @@ EndFunction
 
 #Region Private
 
-Function MatchRecursive(Regex, Memo, Str, Val Index = 1, Val Pos = 1)
-	Node = Regex[Index];		
-	NodeMemo = Memo[Index];
+Function MatchRecursive(Regex, Memo, Str, Val Target = 1, Val Pos = 1)
+	Node = Regex[Target];		
+	NodeMemo = Memo[Target];
 	If NodeMemo.Find(Pos) <> Undefined Then
 		Return False;
 	EndIf;
 	Node["pos"] = Pos;
 	Char = Mid(Str, Pos, 1);	
-	Index = Node["next"]; // можно пропустить без поглощения символа?
-	If Index <> Undefined Then
-		If MatchRecursive(Regex, Memo, Str, Index, Pos) Then // попытка сопоставить символ со следующим узлом
+	Target = Node["next"]; // можно пропустить без поглощения символа?
+	If Target <> Undefined Then
+		If MatchRecursive(Regex, Memo, Str, Target, Pos) Then // попытка сопоставить символ со следующим узлом
 			Return True;
 		EndIf; 
 	EndIf;
@@ -256,8 +256,8 @@ Function MatchRecursive(Regex, Memo, Str, Val Index = 1, Val Pos = 1)
 		Targets = Node["any"]; // разрешен любой символ?  
 	EndIf;	
 	If Targets <> Undefined Then
-		For Each Index In Targets Do
-			If MatchRecursive(Regex, Memo, Str, Index, Pos + 1) Then
+		For Each Target In Targets Do
+			If MatchRecursive(Regex, Memo, Str, Target, Pos + 1) Then
 				Return True;
 			EndIf; 
 		EndDo;
