@@ -9,6 +9,7 @@ Tirex = New Tirex;
 
 RegexProc = Tirex.Build("Процедура ([\w\d_]+)\(.*\).*");
 RegexFunc = Tirex.Build("Функция ([\w\d_]+)\(.*\).*");
+
 Reader = New TextReader;
 Reader.Open("Module.bsl");
 
@@ -17,12 +18,12 @@ While Str <> Undefined Do
 	If Tirex.Match(RegexProc, Str) Then
 		Captures = Tirex.Captures(RegexProc);
 		For Each Item In Captures Do
-			Message(Mid(Str, Item.Beg, Item.End - Item.Beg));
+			Message(Mid(Str, Item.Pos, Item.Len));
 		EndDo;
 	ElsIf Tirex.Match(RegexFunc, Str) Then
 		Captures = Tirex.Captures(RegexFunc);
 		For Each Item In Captures Do
-			Message(Mid(Str, Item.Beg, Item.End - Item.Beg));
+			Message(Mid(Str, Item.Pos, Item.Len));
 		EndDo;
 	EndIf;
 	Str = Reader.ReadLine();
