@@ -32,38 +32,45 @@ EndFunction
 Function Search(Regex, Str) Export
 	List = New Array;
 	NewList = New Array;
+	InitList = New Array;
+	Node = Regex[1];
+	InitList.Add(Node);
+	Split(Regex, InitList, Node); 
 	For Beg = 1 To StrLen(Str) Do
-		List.Add(1);
-		For Pos = Beg To StrLen(Str) Do
+		For Each Node In InitList Do
+			List.Add(Node);
+		EndDo; 
+		For Pos = Beg To StrLen(Str) + 1 Do // сопоставление включая конец строки
 			Char = Mid(Str, Pos, 1);
-			For Each Target In List Do
-				While Target <> Undefined Do 
-					Node = Regex[Target];
-					If Node["end"] = True Then // это разрешенное конечное состояние?
-						Return New Structure("Pos, Len", Beg, Pos - Beg);
-					EndIf;
-					Targets = Node[Char];
-					If Targets = Undefined Then
-						Targets = Node["any"]; // разрешен любой символ?  
-					EndIf;
-					If Targets <> Undefined Then
-						For Each Target In Targets Do
-							If NewList.Find(Target) = Undefined Then
-								NewList.Add(Target);
-							EndIf; 
-						EndDo;
-					EndIf;	
-					Target = Node["next"]; // можно пропустить без поглощения символа?
-				EndDo; 
+			For Each Node In List Do
+				If Node["end"] = True Then // это разрешенное конечное состояние?
+					Return New Structure("Pos, Len", Beg, Pos - Beg);
+				EndIf;
+				Targets = Node[Char];
+				If Targets = Undefined Then
+					Targets = Node["any"]; // разрешен любой символ?  
+				EndIf;
+				If Targets <> Undefined Then
+					For Each Target In Targets Do
+						Node = Regex[Target];
+						If NewList.Find(Node) = Undefined Then
+							NewList.Add(Node);
+						EndIf;
+						Split(Regex, NewList, Node); // можно пропустить без поглощения символа?
+					EndDo;
+				EndIf;	 
 			EndDo;
-			Temp = List;
-			List = NewList;
-			NewList = Temp;
+			Temp = List; List = NewList; NewList = Temp; // обмен значений
 			NewList.Clear();
 			If List.Count() = 0 Then
 				Break;
 			EndIf;
 		EndDo;
+		For Each Node In List Do // если образец найден в конце строки, то эти узлы еще не проверены
+			If Node["end"] = True Then // это разрешенное конечное состояние?
+				Return New Structure("Pos, Len", Beg, Pos - Beg);
+			EndIf;
+		EndDo; 
 		List.Clear();
 	EndDo;
 	Return Undefined;
@@ -86,6 +93,7 @@ EndFunction
 //		*  - замыкание Клини
 //		+  - один или несколько
 //		?  - один или ничего
+//		|  - альтернатива
 //		() - захваты
 //		[...] - один символ из набора
 //		[^...] - любой символ, кроме символов из набора
@@ -99,12 +107,14 @@ Function Build(Pattern) Export
 	Lexer = Lexer(Pattern);
 	Regex = New Array;
 	CharSet = NextChar(Lexer);
-	Heads = Lexer.Heads;
+	Heads = New Array;
 	Tails = New Array;
 	Balance = 0;
 	Node = NewNode(Regex); // нулевой узел
 	Node = NewNode(Regex); // первый узел
+	Node["split"].Add(Regex.Count());
 	Heads.Add(Node); Tails.Add(New Array);
+	Node = NewNode(Regex);
 	While True Do
 		If CharSet = "\" Then	
 			CharSet = CharSet(Lexer, NextChar(Lexer));
@@ -137,38 +147,22 @@ Function Build(Pattern) Export
 			EndDo;
 			CharSet = Set;
 		ElsIf CharSet = "(" Then
-			Count = 0;
-			While CharSet = "(" Do
-				Count = Count + 1;
-				CharSet = NextChar(Lexer);
-			EndDo;
-			Balance = Balance + Count;
-			Node["++"] = Count;
-			Node["next"] = Regex.Count();
-			Node = NewNode(Regex);
+			Balance = Balance + 1;
+			Node["++"] = 1;
+			Node["split"].Add(Regex.Count());
 			Heads.Add(Node); Tails.Add(New Array);
-			Continue;
-		ElsIf CharSet = "|" Then
-			Tails[Tails.UBound()].Add(Node);
-			Lexer.Split = True;
 			CharSet = NextChar(Lexer);
-			If CharSet = "(" Or CharSet = ")" Then
-				Raise StrTemplate("unexpected character '%1' in position '%2'", CharSet, Lexer.Pos);	
-			EndIf;
+			Node = NewNode(Regex);
 			Continue;
 		ElsIf CharSet = ")" Then
-			Count = 0;
-			While CharSet = ")" Do
-				Count = Count + 1;
-				CharSet = NextChar(Lexer);
-			EndDo;
-			Balance = Balance - Count;
-			Node["next"] = Regex.Count();
-			Node["--"] = Count;
+			Balance = Balance - 1;
+			Node["--"] = 1;
+			Node["split"].Add(Regex.Count());
 			For Each Node In Tails[Tails.UBound()] Do
-				Node["next"] = Regex.Count() - 1;	
+				Node["split"].Add(Regex.UBound());	
 			EndDo;
 			Heads.Delete(Heads.UBound()); Tails.Delete(Tails.UBound());
+			CharSet = NextChar(Lexer);
 			Node = NewNode(Regex);
 			Continue;
 		ElsIf CharSet = "_" Then
@@ -178,7 +172,7 @@ Function Build(Pattern) Export
 		ElsIf CharSet = "$" Then
 			Targets(Node, "").Add(Regex.Count());
 			For Each Node In Tails[Tails.UBound()] Do
-				Node["next"] = Regex.Count() - 1;	
+				Node["split"].Add(Regex.UBound());
 			EndDo;
 			Node = NewNode(Regex);
 			Node["end"] = True; // разрешенное конечное состояние
@@ -186,7 +180,7 @@ Function Build(Pattern) Export
 		ElsIf CharSet = "" Then
 			Node["end"] = True; // разрешенное конечное состояние
 			For Each Node In Tails[Tails.UBound()] Do
-				Node["next"] = Regex.Count() - 1;	
+				Node["split"].Add(Regex.UBound());
 			EndDo;
 			Break;
 		ElsIf CharSet = "*" Or CharSet = "+" Or CharSet = "?" Or CharSet = "|" Then
@@ -194,19 +188,25 @@ Function Build(Pattern) Export
 		EndIf;
 		NextChar = NextChar(Lexer); 
 		If NextChar = "*" Then
-			AddArrows(Lexer, Node, CharSet, Regex.Count() - 1);
-			Node["next"] = Regex.Count();
+			AddArrows(Lexer, Node, CharSet, Regex.UBound());
+			Node["split"].Add(Regex.Count());
 			CharSet = NextChar(Lexer);
 		ElsIf NextChar = "+" Then
 			AddArrows(Lexer, Node, CharSet, Regex.Count());
 			Node = NewNode(Regex);
-			AddArrows(Lexer, Node, CharSet, Regex.Count() - 1);
-			Node["next"] = Regex.Count();
+			AddArrows(Lexer, Node, CharSet, Regex.UBound());
+			Node["split"].Add(Regex.Count());
 			CharSet = NextChar(Lexer);
 		ElsIf NextChar = "?" Then
 			AddArrows(Lexer, Node, CharSet, Regex.Count());
-			Node["next"] = Regex.Count();
+			Node["split"].Add(Regex.Count());
 			CharSet = NextChar(Lexer);
+		ElsIf NextChar = "|" Then
+			AddArrows(Lexer, Node, CharSet, Regex.Count());
+			Node = NewNode(Regex);
+			Tails[Tails.UBound()].Add(Node);
+			CharSet = NextChar(Lexer);
+			Heads[Heads.UBound()]["split"].Add(Regex.Count());
 		Else
 			AddArrows(Lexer, Node, CharSet, Regex.Count());
 			CharSet = NextChar;
@@ -216,7 +216,7 @@ Function Build(Pattern) Export
 	EndDo;
 	If Balance <> 0 Then
 		Raise "unbalanced brackets";
-	EndIf;
+	EndIf; 
 	Return Regex;
 EndFunction 
 
@@ -270,11 +270,13 @@ Function MatchRecursive(Regex, Memo, Str, Val Target = 1, Val Pos = 1)
 	EndIf;
 	Node["pos"] = Pos;
 	Char = Mid(Str, Pos, 1);	
-	Target = Node["next"]; // можно пропустить без поглощения символа?
-	If Target <> Undefined Then
-		If MatchRecursive(Regex, Memo, Str, Target, Pos) Then // попытка сопоставить символ со следующим узлом
-			Return True;
-		EndIf; 
+	Targets = Node["split"]; // можно пропустить без поглощения символа?
+	If Targets <> Undefined Then
+		For Each Target In Targets Do
+			If MatchRecursive(Regex, Memo, Str, Target, Pos) Then // попытка сопоставить символ со следующим узлом
+				Return True;
+			EndIf; 
+		EndDo; 
 	EndIf;
 	Targets = Node[Char];
 	If Targets = Undefined Then
@@ -291,8 +293,18 @@ Function MatchRecursive(Regex, Memo, Str, Val Target = 1, Val Pos = 1)
 	Return Node["end"] = True; // это разрешенное конечное состояние?
 EndFunction
 
+Procedure Split(Regex, List, Val Node)
+	For Each Target In Node["split"] Do
+		Node = Regex[Target];
+		List.Add(Node);
+		Split(Regex, List, Node);
+	EndDo;
+EndProcedure
+
 Function NewNode(Regex)
 	Node = New Map;
+	Node["index"] = Regex.Count();
+	Node["split"] = New Array;
 	Regex.Add(Node);	
 	Return Node;
 EndFunction 
@@ -312,8 +324,6 @@ Function Lexer(Pattern)
 	Lexer.Insert("Pos", 0);
 	Lexer.Insert("IgnoreCase", False);
 	Lexer.Insert("Complement", False);
-	Lexer.Insert("Heads", New Array);
-	Lexer.Insert("Split", False);
 	Return Lexer;
 EndFunction 
 
@@ -352,12 +362,6 @@ Function CharSet(Lexer, Char)
 EndFunction
 
 Procedure AddArrows(Lexer, Node, CharSet, Val Target)
-	If Lexer.Split Then
-		Lexer.Split = False;
-		Heads = Lexer.Heads;
-		AddArrows(Lexer, Heads[Heads.UBound()], CharSet, Target);
-		Return;
-	EndIf; 
 	If CharSet = Lexer.AnyChar Then
 		Targets(Node, "any").Add(Target); // стрелка для любого символа
 		Targets(Node, "").Add(0);         // кроме конца текста
@@ -380,7 +384,7 @@ Procedure AddArrows(Lexer, Node, CharSet, Val Target)
 				Targets(Node, Char).Add(Target);
 			EndIf;
 		EndDo;
-	EndIf;
+	EndIf; 
 EndProcedure 
 
 Function Targets(Node, Key)
