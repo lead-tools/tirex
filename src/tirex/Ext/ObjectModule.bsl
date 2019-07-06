@@ -46,18 +46,16 @@ Function Search(Regex, Str) Export
 				If Node["end"] = True Then // это разрешенное конечное состояние?
 					Return New Structure("Pos, Len", Beg, Pos - Beg);
 				EndIf;
-				Targets = Node[Char];
-				If Targets = Undefined Then
-					Targets = Node["any"]; // разрешен любой символ?  
+				Target = Node[Char];
+				If Target = Undefined Then
+					Target = Node["any"]; // разрешен любой символ?  
 				EndIf;
-				If Targets <> Undefined Then
-					For Each Target In Targets Do
-						Node = Regex[Target];
-						If NewList.Find(Node) = Undefined Then
-							NewList.Add(Node);
-						EndIf;
-						Split(Regex, NewList, Node); // можно пропустить без поглощения символа?
-					EndDo;
+				If Target <> Undefined Then
+					Node = Regex[Target];
+					If NewList.Find(Node) = Undefined Then
+						NewList.Add(Node);
+					EndIf;
+					Split(Regex, NewList, Node); // можно пропустить без поглощения символа?
 				EndIf;	 
 			EndDo;
 			Temp = List; List = NewList; NewList = Temp; // обмен значений
@@ -170,7 +168,7 @@ Function Build(Pattern) Export
 			CharSet = NextChar(Lexer);
 			Continue;
 		ElsIf CharSet = "$" Then
-			Targets(Node, "").Add(Regex.Count());
+			Node[""]= Regex.Count();
 			For Each Node In Tails[Tails.UBound()] Do
 				Node["split"].Add(Regex.UBound());
 			EndDo;
@@ -225,6 +223,9 @@ EndFunction
 // если строка "xy" и регулярное выражение "((x)(y))",
 // то будут захвачены диапазоны [{"Pos":1,"Len":1},{"Pos":2,"Len":1},{"Pos":1,"Len":2}]
 // т.е. "x", "y", "xy"
+// Внимание. При использовании оператора `|` некоторые диапазоны могут иметь неопределенное положение или длину.
+// Например, для строки "adez" и выражения "a((b)c|(de)z)" первый диапазон будет иметь отрицательную длину:
+// [{"Pos":2,"Len":-2},{"Pos":2,"Len":2},{"Pos":2,"Len":3}]
 //
 // Parameters:
 //  Regex	 - Array - регулярка после выполнения на ней Match() 
@@ -270,24 +271,19 @@ Function MatchRecursive(Regex, Memo, Str, Val Target = 1, Val Pos = 1)
 	EndIf;
 	Node["pos"] = Pos;
 	Char = Mid(Str, Pos, 1);	
-	Targets = Node["split"]; // можно пропустить без поглощения символа?
-	If Targets <> Undefined Then
-		For Each Target In Targets Do
-			If MatchRecursive(Regex, Memo, Str, Target, Pos) Then // попытка сопоставить символ со следующим узлом
-				Return True;
-			EndIf; 
-		EndDo; 
-	EndIf;
-	Targets = Node[Char];
-	If Targets = Undefined Then
-		Targets = Node["any"]; // разрешен любой символ?  
+	For Each Target In Node["split"] Do // можно пропустить без поглощения символа?
+		If MatchRecursive(Regex, Memo, Str, Target, Pos) Then // попытка сопоставить символ со следующим узлом
+			Return True;
+		EndIf; 
+	EndDo; 
+	Target = Node[Char];
+	If Target = Undefined Then
+		Target = Node["any"]; // разрешен любой символ?  
 	EndIf;	
-	If Targets <> Undefined Then
-		For Each Target In Targets Do
-			If MatchRecursive(Regex, Memo, Str, Target, Pos + 1) Then
-				Return True;
-			EndIf; 
-		EndDo;
+	If Target <> Undefined Then
+		If MatchRecursive(Regex, Memo, Str, Target, Pos + 1) Then
+			Return True;
+		EndIf; 
 	EndIf; 	
 	NodeMemo.Add(Pos);	
 	Return Node["end"] = True; // это разрешенное конечное состояние?
@@ -303,7 +299,7 @@ EndProcedure
 
 Function NewNode(Regex)
 	Node = New Map;
-	Node["index"] = Regex.Count();
+	//Node["index"] = Regex.Count(); // для отладки
 	Node["split"] = New Array;
 	Regex.Add(Node);	
 	Return Node;
@@ -363,8 +359,8 @@ EndFunction
 
 Procedure AddArrows(Lexer, Node, CharSet, Val Target)
 	If CharSet = Lexer.AnyChar Then
-		Targets(Node, "any").Add(Target); // стрелка для любого символа
-		Targets(Node, "").Add(0);         // кроме конца текста
+		Node["any"] = Target; // стрелка для любого символа
+		Node[""] = 0;         // кроме конца текста
 	ElsIf TypeOf(CharSet) = Type("Map") Then
 		For Each Item In CharSet Do
 			Lexer.Complement = Item.Value;
@@ -372,29 +368,20 @@ Procedure AddArrows(Lexer, Node, CharSet, Val Target)
 		EndDo;
 	Else
 		If Lexer.Complement Then
-			Targets(Node, "any").Add(Target);
+			Node["any"] = Target;
 			Target = 0; // стрелка на нулевой узел (запрещенное состояние)
 		EndIf;
 		For Num = 1 To Max(1, StrLen(CharSet)) Do
 			Char = Mid(CharSet, Num, 1); 
 			If Lexer.IgnoreCase Then
-				Targets(Node, Lower(Char)).Add(Target);
-				Targets(Node, Upper(Char)).Add(Target);
+				Node[Lower(Char)] = Target;
+				Node[Upper(Char)] = Target;
 			Else
-				Targets(Node, Char).Add(Target);
+				Node[Char] = Target;
 			EndIf;
 		EndDo;
 	EndIf; 
-EndProcedure 
-
-Function Targets(Node, Key)
-	Targets = Node[Key];
-	If Targets = Undefined Then
-		Targets = New Array;
-		Node[Key] = Targets;
-	EndIf; 
-	Return Targets;
-EndFunction  
+EndProcedure  
 
 #EndRegion // Private
 
