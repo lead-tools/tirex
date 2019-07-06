@@ -297,7 +297,7 @@ Function NewNode(Regex)
 EndFunction 
 
 Function Lexer(Pattern)
-	AlphaSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZабвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ";
+	AlphaSet = "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZабвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ";
 	DigitSet = "0123456789";
 	SpaceSet = " " + Chars.NBSp + Chars.Tab + Chars.LF;
 	Lexer = New Structure;
@@ -352,6 +352,7 @@ Procedure AddArrows(Lexer, Node, CharSet, Val Target)
 	If CharSet = Lexer.AnyChar Then
 		Node["any"] = Target; // стрелка для любого символа
 		Node[""] = 0;         // кроме конца текста
+		Node[Chars.LF] = 0;   // и перевода строки
 	ElsIf TypeOf(CharSet) = Type("Map") Then
 		For Each Item In CharSet Do
 			Lexer.Complement = Item.Value;
