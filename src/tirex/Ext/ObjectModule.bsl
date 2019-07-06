@@ -99,10 +99,13 @@ Function Build(Pattern) Export
 	Lexer = Lexer(Pattern);
 	Regex = New Array;
 	CharSet = NextChar(Lexer);
+	Heads = Lexer.Heads;
+	Tails = New Array;
 	Balance = 0;
 	Node = NewNode(Regex); // нулевой узел
 	Node = NewNode(Regex); // первый узел
-	While CharSet <> "" Do
+	Heads.Add(Node); Tails.Add(New Array);
+	While True Do
 		If CharSet = "\" Then	
 			CharSet = CharSet(Lexer, NextChar(Lexer));
 		ElsIf CharSet = "." Then
@@ -143,6 +146,15 @@ Function Build(Pattern) Export
 			Node["++"] = Count;
 			Node["next"] = Regex.Count();
 			Node = NewNode(Regex);
+			Heads.Add(Node); Tails.Add(New Array);
+			Continue;
+		ElsIf CharSet = "|" Then
+			Tails[Tails.UBound()].Add(Node);
+			Lexer.Split = True;
+			CharSet = NextChar(Lexer);
+			If CharSet = "(" Or CharSet = ")" Then
+				Raise StrTemplate("unexpected character '%1' in position '%2'", CharSet, Lexer.Pos);	
+			EndIf;
 			Continue;
 		ElsIf CharSet = ")" Then
 			Count = 0;
@@ -153,6 +165,10 @@ Function Build(Pattern) Export
 			Balance = Balance - Count;
 			Node["next"] = Regex.Count();
 			Node["--"] = Count;
+			For Each Node In Tails[Tails.UBound()] Do
+				Node["next"] = Regex.Count() - 1;	
+			EndDo;
+			Heads.Delete(Heads.UBound()); Tails.Delete(Tails.UBound());
 			Node = NewNode(Regex);
 			Continue;
 		ElsIf CharSet = "_" Then
@@ -161,9 +177,19 @@ Function Build(Pattern) Export
 			Continue;
 		ElsIf CharSet = "$" Then
 			Targets(Node, "").Add(Regex.Count());
+			For Each Node In Tails[Tails.UBound()] Do
+				Node["next"] = Regex.Count() - 1;	
+			EndDo;
 			Node = NewNode(Regex);
+			Node["end"] = True; // разрешенное конечное состояние
 			Break;
-		ElsIf CharSet = "*" Or CharSet = "+" Or CharSet = "?" Then
+		ElsIf CharSet = "" Then
+			Node["end"] = True; // разрешенное конечное состояние
+			For Each Node In Tails[Tails.UBound()] Do
+				Node["next"] = Regex.Count() - 1;	
+			EndDo;
+			Break;
+		ElsIf CharSet = "*" Or CharSet = "+" Or CharSet = "?" Or CharSet = "|" Then
 			Raise StrTemplate("unexpected character '%1' in position '%2'", CharSet, Lexer.Pos);
 		EndIf;
 		NextChar = NextChar(Lexer); 
@@ -190,8 +216,7 @@ Function Build(Pattern) Export
 	EndDo;
 	If Balance <> 0 Then
 		Raise "unbalanced brackets";
-	EndIf; 
-	Node["end"] = True; // разрешенное конечное состояние
+	EndIf;
 	Return Regex;
 EndFunction 
 
@@ -287,6 +312,8 @@ Function Lexer(Pattern)
 	Lexer.Insert("Pos", 0);
 	Lexer.Insert("IgnoreCase", False);
 	Lexer.Insert("Complement", False);
+	Lexer.Insert("Heads", New Array);
+	Lexer.Insert("Split", False);
 	Return Lexer;
 EndFunction 
 
@@ -325,6 +352,12 @@ Function CharSet(Lexer, Char)
 EndFunction
 
 Procedure AddArrows(Lexer, Node, CharSet, Val Target)
+	If Lexer.Split Then
+		Lexer.Split = False;
+		Heads = Lexer.Heads;
+		AddArrows(Lexer, Heads[Heads.UBound()], CharSet, Target);
+		Return;
+	EndIf; 
 	If CharSet = Lexer.AnyChar Then
 		Targets(Node, "any").Add(Target); // стрелка для любого символа
 		Targets(Node, "").Add(0);         // кроме конца текста
@@ -347,7 +380,7 @@ Procedure AddArrows(Lexer, Node, CharSet, Val Target)
 				Targets(Node, Char).Add(Target);
 			EndIf;
 		EndDo;
-	EndIf; 
+	EndIf;
 EndProcedure 
 
 Function Targets(Node, Key)
@@ -632,6 +665,28 @@ Procedure Example4() Export
 		Message("`" + Mid(Str, Capture.Pos, Capture.Len) + "`");
 	EndIf;
 	Message(StrTemplate("Example4 - Completed (%1 sec)", Elapsed(Start)));
+EndProcedure
+
+// Вывод списка экспортных процедур и функций из этого модуля. Это пример использования `|`
+// Например, для данной процедуры будет выведено:
+// Procedure
+// Example5()
+Procedure Example5() Export
+	Regex = Build("(Procedure|Function) (\w*\d*\(.*\)) Export");
+	Reader = New TextReader;
+	Reader.Open("ObjectModule.bsl");
+	Start = CurrentUniversalDateInMilliseconds();
+	Str = Reader.ReadLine();
+	While Str <> Undefined Do
+		If Match(Regex, Str) Then
+			Captures = Captures(Regex);
+			For Each Item In Captures Do
+				Message(Mid(Str, Item.Pos, Item.Len));
+			EndDo;
+		EndIf;
+		Str = Reader.ReadLine();
+	EndDo;
+	Message(StrTemplate("Example5 - Completed (%1 sec)", Elapsed(Start)));
 EndProcedure
 
 #EndRegion // Examples
