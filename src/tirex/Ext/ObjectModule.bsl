@@ -1,4 +1,27 @@
-﻿#Region Public
+﻿
+// MIT License
+
+// Copyright (c) 2019 Tsukanov Alexander
+
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+#Region Public
 
 // Function - Проверяет соответствует ли строка регулярному выражению.
 // Сопоставление выполняется обходом в глубину с мемоизацией.
@@ -34,7 +57,7 @@ Function Search(Regex, Str) Export
 	NewList = New Array;
 	For Beg = 1 To StrLen(Str) Do
 		List.Add(1);
-		For Pos = Beg To StrLen(Str) Do
+		For Pos = Beg To StrLen(Str) + 1 Do
 			Char = Mid(Str, Pos, 1);
 			For Each Target In List Do
 				While Target <> Undefined Do 
@@ -42,16 +65,14 @@ Function Search(Regex, Str) Export
 					If Node["end"] = True Then // это разрешенное конечное состояние?
 						Return New Structure("Pos, Len", Beg, Pos - Beg);
 					EndIf;
-					Targets = Node[Char];
-					If Targets = Undefined Then
-						Targets = Node["any"]; // разрешен любой символ?  
+					Target = Node[Char];
+					If Target = Undefined Then
+						Target = Node["any"]; // разрешен любой символ?  
 					EndIf;
-					If Targets <> Undefined Then
-						For Each Target In Targets Do
-							If NewList.Find(Target) = Undefined Then
-								NewList.Add(Target);
-							EndIf; 
-						EndDo;
+					If Target <> Undefined Then
+						If NewList.Find(Target) = Undefined Then
+							NewList.Add(Target);
+						EndIf; 
 					EndIf;	
 					Target = Node["next"]; // можно пропустить без поглощения символа?
 				EndDo; 
@@ -62,6 +83,11 @@ Function Search(Regex, Str) Export
 			NewList.Clear();
 			If List.Count() = 0 Then
 				Break;
+			EndIf;
+		EndDo;
+		For Each Target In List Do // если образец найден в конце строки, то эти узлы еще не проверены
+			If Regex[Target]["end"] = True Then // это разрешенное конечное состояние?
+				Return New Structure("Pos, Len", Beg, Pos - Beg);
 			EndIf;
 		EndDo;
 		List.Clear();
@@ -160,7 +186,7 @@ Function Build(Pattern) Export
 			CharSet = NextChar(Lexer);
 			Continue;
 		ElsIf CharSet = "$" Then
-			Targets(Node, "").Add(Regex.Count());
+			Node[""]= Regex.Count();
 			Node = NewNode(Regex);
 			Break;
 		ElsIf CharSet = "*" Or CharSet = "+" Or CharSet = "?" Then
@@ -168,13 +194,13 @@ Function Build(Pattern) Export
 		EndIf;
 		NextChar = NextChar(Lexer); 
 		If NextChar = "*" Then
-			AddArrows(Lexer, Node, CharSet, Regex.Count() - 1);
+			AddArrows(Lexer, Node, CharSet, Regex.UBound());
 			Node["next"] = Regex.Count();
 			CharSet = NextChar(Lexer);
 		ElsIf NextChar = "+" Then
 			AddArrows(Lexer, Node, CharSet, Regex.Count());
 			Node = NewNode(Regex);
-			AddArrows(Lexer, Node, CharSet, Regex.Count() - 1);
+			AddArrows(Lexer, Node, CharSet, Regex.UBound());
 			Node["next"] = Regex.Count();
 			CharSet = NextChar(Lexer);
 		ElsIf NextChar = "?" Then
@@ -193,7 +219,7 @@ Function Build(Pattern) Export
 	EndIf; 
 	Node["end"] = True; // разрешенное конечное состояние
 	Return Regex;
-EndFunction 
+EndFunction
 
 // Function - Возвращает захваченные диапазоны из регулярки.
 // Порядок диапазонов в списке определен так:
@@ -251,16 +277,14 @@ Function MatchRecursive(Regex, Memo, Str, Val Target = 1, Val Pos = 1)
 			Return True;
 		EndIf; 
 	EndIf;
-	Targets = Node[Char];
-	If Targets = Undefined Then
-		Targets = Node["any"]; // разрешен любой символ?  
+	Target = Node[Char];
+	If Target = Undefined Then
+		Target = Node["any"]; // разрешен любой символ?  
 	EndIf;	
-	If Targets <> Undefined Then
-		For Each Target In Targets Do
-			If MatchRecursive(Regex, Memo, Str, Target, Pos + 1) Then
-				Return True;
-			EndIf; 
-		EndDo;
+	If Target <> Undefined Then
+		If MatchRecursive(Regex, Memo, Str, Target, Pos + 1) Then
+			Return True;
+		EndIf; 
 	EndIf; 	
 	NodeMemo.Add(Pos);	
 	Return Node["end"] = True; // это разрешенное конечное состояние?
@@ -326,8 +350,8 @@ EndFunction
 
 Procedure AddArrows(Lexer, Node, CharSet, Val Target)
 	If CharSet = Lexer.AnyChar Then
-		Targets(Node, "any").Add(Target); // стрелка для любого символа
-		Targets(Node, "").Add(0);         // кроме конца текста
+		Node["any"] = Target; // стрелка для любого символа
+		Node[""] = 0;         // кроме конца текста
 	ElsIf TypeOf(CharSet) = Type("Map") Then
 		For Each Item In CharSet Do
 			Lexer.Complement = Item.Value;
@@ -335,29 +359,20 @@ Procedure AddArrows(Lexer, Node, CharSet, Val Target)
 		EndDo;
 	Else
 		If Lexer.Complement Then
-			Targets(Node, "any").Add(Target);
+			Node["any"] = Target;
 			Target = 0; // стрелка на нулевой узел (запрещенное состояние)
 		EndIf;
 		For Num = 1 To Max(1, StrLen(CharSet)) Do
 			Char = Mid(CharSet, Num, 1); 
 			If Lexer.IgnoreCase Then
-				Targets(Node, Lower(Char)).Add(Target);
-				Targets(Node, Upper(Char)).Add(Target);
+				Node[Lower(Char)] = Target;
+				Node[Upper(Char)] = Target;
 			Else
-				Targets(Node, Char).Add(Target);
+				Node[Char] = Target;
 			EndIf;
 		EndDo;
 	EndIf; 
-EndProcedure 
-
-Function Targets(Node, Key)
-	Targets = Node[Key];
-	If Targets = Undefined Then
-		Targets = New Array;
-		Node[Key] = Targets;
-	EndIf; 
-	Return Targets;
-EndFunction  
+EndProcedure  
 
 #EndRegion // Private
 
