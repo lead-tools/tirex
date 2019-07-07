@@ -11,8 +11,8 @@
 AttachScript("C:\git\tirex\src\tirex\Ext\ObjectModule.bsl", "Tirex");
 Tirex = New Tirex;
 
-RegexProc = Tirex.Build("Процедура ([\w\d_]+)\(.*\)");
-RegexFunc = Tirex.Build("Функция ([\w\d_]+)\(.*\)");
+RegexProc = Tirex.Build("Процедура ([\w\d]+)\(.*\)");
+RegexFunc = Tirex.Build("Функция ([\w\d]+)\(.*\)");
 
 Reader = New TextReader;
 Reader.Open("Module.bsl");
